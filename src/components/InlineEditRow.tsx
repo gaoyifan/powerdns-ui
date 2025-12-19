@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Button, Input, Select } from '../components';
-import { Save, Trash2 } from 'lucide-react';
+import { Button, Input, Badge } from '../components';
+import { Save, Trash2, X } from 'lucide-react';
 
 interface InlineEditRowProps {
     record: {
@@ -17,8 +17,8 @@ interface InlineEditRowProps {
 }
 
 export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, onSave, onDelete, onCancel }) => {
-    const [name, setName] = useState(record.name);
-    const [type, setType] = useState(record.type);
+    const [name] = useState(record.name);
+    const [type] = useState(record.type);
     const [ttl, setTtl] = useState(record.ttl);
     const [content, setContent] = useState(record.content);
     const [saving, setSaving] = useState(false);
@@ -43,69 +43,79 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, onSave, on
         }
     };
 
-    const recordTypes = ['A', 'AAAA', 'CNAME', 'TXT', 'MX', 'NS', 'PTR', 'SRV', 'NAPTR'];
-
     return (
         <tr className="bg-muted/30 border-b border-primary/20">
-            <td colSpan={5} className="p-4">
-                <div className="flex flex-col gap-4">
-                    <div className="flex items-center justify-between">
-                        <h4 className="font-semibold text-sm">Edit Record in {record.view}</h4>
-                        <div className="flex gap-2">
-                            <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive/90" onClick={handleDelete} loading={deleting}>
-                                <Trash2 className="size-4 mr-1" />
-                                Delete
-                            </Button>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-12 gap-4">
-                        <div className="col-span-3">
-                            <label className="text-xs font-semibold mb-1 block">Name</label>
-                            <Input
-                                value={name}
-                                onChange={e => setName(e.target.value)}
-                                block
-                                disabled={true} // Typically valid API limits changing name of existing RRSet easily without delete/add
-                            />
-                        </div>
-                        <div className="col-span-2">
-                            <label className="text-xs font-semibold mb-1 block">Type</label>
-                            <Select
-                                value={type}
-                                onChange={e => setType(e.target.value)}
-                                block
-                                options={recordTypes.map(t => ({ value: t, label: t }))}
-                                disabled={true} // Changing type usually means new RRSet
-                            />
-                        </div>
-                        <div className="col-span-2">
-                            <label className="text-xs font-semibold mb-1 block">TTL</label>
-                            <Input
-                                type="number"
-                                value={ttl}
-                                onChange={e => setTtl(Number(e.target.value))}
-                                block
-                            />
-                        </div>
-                        <div className="col-span-5">
-                            <label className="text-xs font-semibold mb-1 block">Content</label>
-                            <Input
-                                value={content}
-                                onChange={e => setContent(e.target.value)}
-                                block
-                                autoFocus
-                            />
-                        </div>
-                    </div>
-
-                    <div className="flex justify-end gap-2 mt-2">
-                        <Button size="sm" variant="ghost" onClick={onCancel}>Cancel</Button>
-                        <Button size="sm" variant="primary" onClick={handleSave} loading={saving}>
-                            <Save className="size-4 mr-1" />
-                            Save Changes
-                        </Button>
-                    </div>
+            <td className="px-6 py-4 align-top">
+                <div className="pt-2">
+                    <Badge variant={record.view === 'default' ? 'secondary' : 'default'} className="whitespace-nowrap">
+                        {record.view}
+                    </Badge>
+                </div>
+            </td>
+            <td className="px-6 py-4 align-top">
+                <div className="pt-2">
+                    <span className="text-sm font-medium text-muted-foreground">{name}</span>
+                </div>
+            </td>
+            <td className="px-6 py-4 align-top">
+                <div className="pt-2">
+                    <Badge variant="outline" className="bg-background opacity-70 whitespace-nowrap">
+                        {type}
+                    </Badge>
+                </div>
+            </td>
+            <td className="px-6 py-4 align-top">
+                <Input
+                    type="number"
+                    value={ttl}
+                    onChange={e => setTtl(Number(e.target.value))}
+                    className="w-24 h-9"
+                />
+            </td>
+            <td className="px-6 py-4 align-top">
+                <Input
+                    value={content}
+                    onChange={e => setContent(e.target.value)}
+                    className="h-9 min-w-[300px]"
+                    autoFocus
+                    block
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleSave();
+                        if (e.key === 'Escape') onCancel();
+                    }}
+                />
+            </td>
+            <td className="px-6 py-4 align-top">
+                <div className="flex items-center gap-1">
+                    <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                        onClick={handleSave}
+                        loading={saving}
+                        title="Save"
+                    >
+                        <Save className="size-4" />
+                    </Button>
+                    <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-8 text-muted-foreground hover:text-foreground"
+                        onClick={onCancel}
+                        title="Cancel"
+                    >
+                        <X className="size-4" />
+                    </Button>
+                    <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={handleDelete}
+                        loading={deleting}
+                        title="Delete"
+                    >
+                        <Trash2 className="size-4" />
+                    </Button>
                 </div>
             </td>
         </tr>
