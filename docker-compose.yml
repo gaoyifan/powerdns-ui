@@ -1,0 +1,31 @@
+services:
+  pdns:
+    image: powerdns/pdns-auth-50:5.0.2
+    ports:
+      - "8081:8081"
+      - "53:53/udp"
+    volumes:
+      - pdns-data:/var/lib/powerdns
+    command:
+      - "--no-config"
+      - "--launch=lmdb"
+      - "--lmdb-filename=/var/lib/powerdns/pdns.lmdb"
+      - "--views=yes"
+      - "--api=yes"
+      - "--api-key=secret"
+      - "--webserver=yes"
+      - "--webserver-address=0.0.0.0"
+      - "--webserver-allow-from=0.0.0.0/0"
+      - "--webserver-port=8081"
+    restart: unless-stopped
+
+  ui:
+    build: .
+    ports:
+      - "8080:80"
+    depends_on:
+      - pdns
+    restart: unless-stopped
+
+volumes:
+  pdns-data:
