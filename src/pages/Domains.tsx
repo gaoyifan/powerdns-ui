@@ -78,7 +78,7 @@ export const Domains: React.FC = () => {
                     <h1 className="text-3xl font-bold tracking-tight">Domains</h1>
                     <p className="text-muted-foreground">Manage and configure your DNS zones across different views.</p>
                 </div>
-                <Button variant="primary" leadingIcon={Plus} onClick={() => setIsDialogOpen(true)} size="lg">
+                <Button variant="primary" leadingIcon={Plus} onClick={() => setIsDialogOpen(true)} size="lg" data-testid="create-zone-btn">
                     Create Zone
                 </Button>
             </div>
@@ -101,7 +101,7 @@ export const Domains: React.FC = () => {
                 <StatsCard
                     title="Server Status"
                     value={serverInfo ? 'Online' : 'Unknown'}
-                    description={serverInfo ? `Version ${serverInfo.version.split(' ')[0]}` : 'Connecting...'}
+                    description={serverInfo?.version ? `Version ${serverInfo.version.split(' ')[0]}` : 'Connecting...'}
                     icon={Activity}
                     loading={loading}
                 />
@@ -132,12 +132,15 @@ export const Domains: React.FC = () => {
                     ) : (
                         <div className="grid gap-4">
                             {unifiedZones.map((zone) => (
-                                <Link
+                                <div
                                     key={zone.name}
-                                    to={`/domains/${encodeURIComponent(zone.name)}`}
-                                    className="group flex items-center justify-between p-4 rounded-xl border border-border/60 bg-background/50 hover:bg-accent/50 hover:border-primary/30 transition-all shadow-sm cursor-pointer"
+                                    className="group flex items-center justify-between p-4 rounded-xl border border-border/60 bg-background/50 hover:bg-accent/50 hover:border-primary/30 transition-all shadow-sm"
+                                    data-testid="domain-card"
                                 >
-                                    <div className="flex items-center gap-4">
+                                    <Link
+                                        to={`/domains/${encodeURIComponent(zone.name)}`}
+                                        className="flex items-center gap-4 flex-grow cursor-pointer"
+                                    >
                                         <div className="bg-primary/10 text-primary p-2 rounded-lg group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
                                             <Globe className="size-5" />
                                         </div>
@@ -153,21 +156,22 @@ export const Domains: React.FC = () => {
                                                 ))}
                                             </div>
                                         </div>
-                                    </div>
-                                    <div className="flex items-center gap-4">
+                                    </Link>
+                                    <div className="flex items-center gap-4 pl-4">
                                         <Button
                                             variant="ghost"
                                             size="icon"
-                                            className="text-destructive hover:bg-destructive/10 -mr-2"
+                                            className="text-destructive hover:bg-destructive/10"
                                             onClick={(e) => handleDeleteZone(zone.ids, zone.name, e)}
+                                            data-testid="delete-zone-btn"
                                         >
                                             <Trash2 className="size-4" />
                                         </Button>
-                                        <div className="text-muted-foreground group-hover:text-primary transition-colors">
+                                        <Link to={`/domains/${encodeURIComponent(zone.name)}`} className="text-muted-foreground group-hover:text-primary transition-colors">
                                             <ExternalLink className="size-5" />
-                                        </div>
+                                        </Link>
                                     </div>
-                                </Link>
+                                </div>
                             ))}
                         </div>
                     )}
@@ -186,6 +190,7 @@ export const Domains: React.FC = () => {
                         placeholder="e.g. example.com"
                         block
                         autoFocus
+                        data-testid="zone-name-input"
                     />
 
                     <Select
@@ -202,7 +207,7 @@ export const Domains: React.FC = () => {
                 </ModalContent>
                 <ModalFooter>
                     <Button onClick={() => setIsDialogOpen(false)} variant="ghost">Cancel</Button>
-                    <Button variant="primary" disabled={creating || !newZoneName} onClick={handleCreateZone} loading={creating}>
+                    <Button variant="primary" disabled={creating || !newZoneName} onClick={handleCreateZone} loading={creating} data-testid="submit-create-zone-btn">
                         Create Zone
                     </Button>
                 </ModalFooter>

@@ -255,7 +255,7 @@ export const Views: React.FC = () => {
                     <h1 className="text-3xl font-bold tracking-tight">Views</h1>
                     <p className="text-muted-foreground">Manage DNS views and their associated networks.</p>
                 </div>
-                <Button variant="primary" leadingIcon={Plus} onClick={() => setIsCreateDialogOpen(true)} size="lg">
+                <Button variant="primary" leadingIcon={Plus} onClick={() => setIsCreateDialogOpen(true)} size="lg" data-testid="create-view-btn">
                     Create View
                 </Button>
             </div>
@@ -289,6 +289,7 @@ export const Views: React.FC = () => {
                                         size="icon"
                                         className="text-destructive hover:bg-destructive/10"
                                         onClick={(e) => handleDeleteView(view.name, e)}
+                                        data-testid="delete-view-btn"
                                     >
                                         <Trash2 className="size-4" />
                                     </Button>
@@ -346,6 +347,7 @@ export const Views: React.FC = () => {
                         placeholder="e.g. internal"
                         block
                         autoFocus
+                        data-testid="view-name-input"
                     />
                     <p className="text-xs text-muted-foreground mt-2">
                         Creating a view will create a special marker zone <code>_marker.&lt;name&gt;</code>.
@@ -353,7 +355,7 @@ export const Views: React.FC = () => {
                 </ModalContent>
                 <ModalFooter>
                     <Button onClick={() => setIsCreateDialogOpen(false)} variant="ghost">Cancel</Button>
-                    <Button variant="primary" disabled={creating || !newViewName} onClick={handleCreateView} loading={creating}>
+                    <Button variant="primary" disabled={creating || !newViewName} onClick={handleCreateView} loading={creating} data-testid="submit-create-view-btn">
                         Create View
                     </Button>
                 </ModalFooter>

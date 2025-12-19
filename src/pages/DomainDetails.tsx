@@ -362,6 +362,7 @@ export const DomainDetails: React.FC = () => {
                                                             className="size-8 text-muted-foreground hover:text-foreground"
                                                             onClick={() => setEditingRecordKey(uniqueKey)}
                                                             title="Edit Record"
+                                                            data-testid="edit-record-btn"
                                                         >
                                                             <Pencil className="size-4" />
                                                         </Button>

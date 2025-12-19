@@ -112,6 +112,7 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
                         onClick={handleSave}
                         loading={saving}
                         title="Save"
+                        data-testid="save-record-btn"
                     >
                         <Save className="size-4" />
                     </Button>
@@ -121,6 +122,7 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
                         className="size-8 text-muted-foreground hover:text-foreground"
                         onClick={onCancel}
                         title="Cancel"
+                        data-testid="cancel-edit-btn"
                     >
                         <X className="size-4" />
                     </Button>
@@ -132,6 +134,7 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
                             onClick={handleDeleteClick}
                             loading={deleting}
                             title="Delete"
+                            data-testid="delete-record-btn"
                         >
                             <Trash2 className="size-4" />
                         </Button>
