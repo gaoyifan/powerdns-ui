@@ -1,9 +1,11 @@
 :80 {
     root * /usr/share/caddy
-    file_server
-    try_files {path} /index.html
-
-    handle_path /api/v1/* {
+    handle /api/v1/* {
         reverse_proxy http://pdns:8081
+    }
+
+    handle {
+        try_files {path} /index.html
+        file_server
     }
 }
