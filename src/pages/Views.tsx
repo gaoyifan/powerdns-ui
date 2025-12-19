@@ -97,13 +97,27 @@ export const Views: React.FC = () => {
             // Execute changes
             // Removals
             for (const net of toRemove) {
-                const encoded = net.replace(/\//g, '%2F'); // Encode slash
+                // Unmap: set view to empty string
+                // Try unencoded first, then encoded if 404
                 try {
-                    await apiClient.request(`/servers/localhost/networks/${encoded}`, {
-                        method: 'DELETE'
+                    await apiClient.request(`/servers/localhost/networks/${net}`, {
+                        method: 'PUT',
+                        body: JSON.stringify({ view: '' })
                     });
-                } catch (e) {
-                    console.error(`Failed to delete network ${net}`, e);
+                } catch (e: any) {
+                    if (e.status === 404) {
+                        const encoded = net.replace(/\//g, '%2F');
+                        try {
+                            await apiClient.request(`/servers/localhost/networks/${encoded}`, {
+                                method: 'PUT',
+                                body: JSON.stringify({ view: '' })
+                            });
+                        } catch (e2) {
+                            console.error(`Failed to unmap network ${net} (encoded)`, e2);
+                        }
+                    } else {
+                        console.error(`Failed to unmap network ${net}`, e);
+                    }
                 }
             }
 

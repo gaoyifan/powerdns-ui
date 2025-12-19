@@ -176,5 +176,58 @@ describe('Views Page', () => {
         });
     });
 
+    // ==================== UPDATE VIEW TESTS ====================
+
+    it('removes a network from the view when deleted from the list', async () => {
+        const user = userEvent.setup();
+        const zones = [{ name: '_marker.internal.', kind: 'Native' }];
+        const networks = [
+            { network: '192.168.1.0/24', view: 'internal' },
+            { network: '10.0.0.0/8', view: 'internal' }
+        ];
+
+        (apiClient.request as any).mockImplementation((url: string) => {
+            if (url === '/servers/localhost/zones') return Promise.resolve(zones);
+            if (url === '/servers/localhost/networks') return Promise.resolve(networks);
+            return Promise.resolve([]);
+        });
+
+        renderComponent();
+
+        const viewHeader = await screen.findByText('internal');
+        await user.click(viewHeader);
+
+        const textArea = await screen.findByRole('textbox');
+        await waitFor(() => expect(textArea).toHaveValue('192.168.1.0/24\n10.0.0.0/8'));
+
+        // Remove first network
+        await user.clear(textArea);
+        await user.type(textArea, '10.0.0.0/8');
+
+        const saveBtn = screen.getByText('Save Changes');
+        const mockPut = vi.fn().mockResolvedValue({});
+
+        (apiClient.request as any).mockImplementation((url: string, opts: any) => {
+            if (opts?.method === 'PUT') return mockPut(url, opts);
+            // Handle fetches after save
+            if (url === '/servers/localhost/zones') return Promise.resolve(zones);
+            if (url === '/servers/localhost/networks') return Promise.resolve([networks[1]]);
+            return Promise.resolve([]);
+        });
+
+        await user.click(saveBtn);
+
+        await waitFor(() => {
+            // Should call PUT to unmap
+            expect(mockPut).toHaveBeenCalledWith(
+                expect.stringContaining('/servers/localhost/networks/192.168.1.0'),
+                expect.objectContaining({
+                    method: 'PUT',
+                    body: JSON.stringify({ view: '' })
+                })
+            );
+        });
+    });
+
 });
 
