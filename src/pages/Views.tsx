@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { List, Network as NetworkIcon, ChevronDown, ChevronUp, Save, Plus, Trash2 } from 'lucide-react';
 import { apiClient } from '../api/client';
 import { parseZoneId } from '../utils/zoneUtils';
+import { cn } from '../lib/utils';
 import { Button, Card, Flash, Input, Modal, ModalHeader, ModalTitle, ModalContent, ModalFooter, Loading, EmptyState, DeleteConfirmationModal } from '../components';
 import type { Zone, Network } from '../types/api';
 
@@ -76,10 +77,16 @@ export const Views: React.FC = () => {
             const networksRes = await apiClient.request<Network[]>('/servers/localhost/networks');
             const allNetworks = Array.isArray(networksRes) ? networksRes : (networksRes as { networks: Network[] }).networks || [];
 
-            const viewList = Array.from(foundViews).sort().map(v => ({
-                name: v,
-                networks: allNetworks.filter(n => (n.view || 'default') === v).map(n => n.network)
-            }));
+            const viewList = Array.from(foundViews)
+                .sort((a, b) => {
+                    if (a === 'default') return -1;
+                    if (b === 'default') return 1;
+                    return a.localeCompare(b);
+                })
+                .map(v => ({
+                    name: v,
+                    networks: allNetworks.filter(n => (n.view || 'default') === v).map(n => n.network)
+                }));
 
             setViews(viewList);
         } catch (err: unknown) {
@@ -223,6 +230,7 @@ export const Views: React.FC = () => {
             let failCount = 0;
 
             for (const view of views) {
+                if (view.name === 'default') continue;
                 const url = viewUrls[view.name];
                 if (!url) continue;
 
@@ -378,8 +386,11 @@ export const Views: React.FC = () => {
                 {!loading && views.map((view) => (
                     <Card key={view.name} className={`transition-all ${expandedView === view.name ? 'ring-2 ring-primary/20' : ''}`}>
                         <div
-                            className="p-6 flex items-center justify-between cursor-pointer hover:bg-accent/30 transition-colors"
-                            onClick={() => toggleExpand(view.name, view.networks)}
+                            className={cn(
+                                "p-6 flex items-center justify-between transition-colors",
+                                view.name !== 'default' && "cursor-pointer hover:bg-accent/30"
+                            )}
+                            onClick={() => view.name !== 'default' && toggleExpand(view.name, view.networks)}
                         >
                             <div className="flex items-center gap-4">
                                 <div className="bg-primary/10 text-primary p-2 rounded-lg">
@@ -405,9 +416,11 @@ export const Views: React.FC = () => {
                                         <Trash2 className="size-4" />
                                     </Button>
                                 )}
-                                <Button variant="ghost" size="icon">
-                                    {expandedView === view.name ? <ChevronUp /> : <ChevronDown />}
-                                </Button>
+                                {view.name !== 'default' && (
+                                    <Button variant="ghost" size="icon">
+                                        {expandedView === view.name ? <ChevronUp /> : <ChevronDown />}
+                                    </Button>
+                                )}
                             </div>
                         </div>
 
