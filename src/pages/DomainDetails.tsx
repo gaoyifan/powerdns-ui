@@ -31,7 +31,7 @@ export const DomainDetails: React.FC = () => {
             return (
                 record.name.toLowerCase().includes(query) ||
                 record.type.toLowerCase().includes(query) ||
-                record.records.some(r => r.content.toLowerCase().includes(query)) ||
+                record.content.toLowerCase().includes(query) ||
                 record.view.toLowerCase().includes(query)
             );
         })
@@ -90,7 +90,7 @@ export const DomainDetails: React.FC = () => {
                             name: newRrName,
                             type: data.type,
                             ttl: data.ttl,
-                            changetype: 'REPLACE',
+                            changetype: 'EXTEND',
                             records: [{
                                 content: data.content,
                                 disabled: false
@@ -99,33 +99,48 @@ export const DomainDetails: React.FC = () => {
                     })
                 });
 
-                // 2. DELETE the old record ONLY IF the add was successful
+                // 2. DELETE (PRUNE) the old record ONLY IF the add was successful
                 await apiClient.request(`/servers/localhost/zones/${original.zoneId}`, {
                     method: 'PATCH',
                     body: JSON.stringify({
                         rrsets: [{
                             name: original.name,
                             type: original.type,
-                            changetype: 'DELETE',
-                            records: []
+                            ttl: original.ttl,
+                            changetype: 'PRUNE',
+                            records: [{
+                                content: original.content
+                            }]
                         }]
                     })
                 });
             } else {
                 // Pure update (TTL/Content change)
+                // Use a single PATCH with PRUNE and EXTEND
                 await apiClient.request(`/servers/localhost/zones/${original.zoneId}`, {
                     method: 'PATCH',
                     body: JSON.stringify({
-                        rrsets: [{
-                            name: original.name,
-                            type: original.type,
-                            ttl: data.ttl,
-                            changetype: 'REPLACE',
-                            records: [{
-                                content: data.content,
-                                disabled: false
-                            }]
-                        }]
+                        rrsets: [
+                            {
+                                name: original.name,
+                                type: original.type,
+                                ttl: original.ttl,
+                                changetype: 'PRUNE',
+                                records: [{
+                                    content: original.content
+                                }]
+                            },
+                            {
+                                name: original.name,
+                                type: original.type,
+                                ttl: data.ttl,
+                                changetype: 'EXTEND',
+                                records: [{
+                                    content: data.content,
+                                    disabled: false
+                                }]
+                            }
+                        ]
                     })
                 });
             }
@@ -145,8 +160,11 @@ export const DomainDetails: React.FC = () => {
                     rrsets: [{
                         name: record.name,
                         type: record.type,
-                        changetype: 'DELETE',
-                        records: []
+                        ttl: record.ttl,
+                        changetype: 'PRUNE',
+                        records: [{
+                            content: record.content
+                        }]
                     }]
                 })
             });
@@ -203,7 +221,7 @@ export const DomainDetails: React.FC = () => {
                         name: rrName,
                         type: data.type,
                         ttl: data.ttl,
-                        changetype: 'REPLACE',
+                        changetype: 'EXTEND',
                         records: [{
                             content: data.content,
                             disabled: false
@@ -301,31 +319,25 @@ export const DomainDetails: React.FC = () => {
                                             onCancel={() => setIsAddingRecord(false)}
                                         />
                                     )}
-                                    {unifiedRecords.length === 0 ? (
+                                    {filteredRecords.length === 0 ? (
                                         <tr>
                                             <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground italic">
-                                                No records found for this domain.
+                                                {unifiedRecords.length === 0 ? "No records found for this domain." : "No matching records found."}
                                             </td>
                                         </tr>
-                                    ) : filteredRecords.length === 0 ? (
-                                        <tr>
-                                            <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground italic">
-                                                No matching records found.
-                                            </td>
-                                        </tr>
-                                    ) : filteredRecords.flatMap((rr) => {
-                                        const uniqueKey = `${rr.zoneId}-${rr.name}-${rr.type}`;
+                                    ) : filteredRecords.map((rr) => {
+                                        const uniqueKey = `${rr.zoneId}-${rr.name}-${rr.type}-${rr.content}`;
                                         const isEditing = editingRecordKey === uniqueKey;
 
                                         if (isEditing) {
-                                            return [
+                                            return (
                                                 <InlineEditRow
                                                     key={uniqueKey}
                                                     record={{
                                                         name: rr.name,
                                                         type: rr.type,
                                                         ttl: rr.ttl,
-                                                        content: rr.records.map(r => r.content).join('\n'), // Simplified for now
+                                                        content: rr.content,
                                                         view: rr.view
                                                     }}
                                                     availableViews={availableViews}
@@ -333,7 +345,7 @@ export const DomainDetails: React.FC = () => {
                                                     onDelete={async () => handleDeleteRecord(rr)}
                                                     onCancel={() => setEditingRecordKey(null)}
                                                 />
-                                            ];
+                                            );
                                         }
 
                                         return (
@@ -350,9 +362,7 @@ export const DomainDetails: React.FC = () => {
                                                 </td>
                                                 <td className="px-6 py-4 text-sm text-muted-foreground">{rr.ttl}</td>
                                                 <td className="px-6 py-4 text-sm font-mono text-muted-foreground break-all">
-                                                    {rr.records.map((r, j) => (
-                                                        <div key={j} className="py-0.5">{r.content}</div>
-                                                    ))}
+                                                    <div className="py-0.5">{rr.content}</div>
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     {rr.type !== 'SOA' && (

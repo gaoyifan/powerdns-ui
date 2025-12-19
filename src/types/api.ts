@@ -25,7 +25,7 @@ export interface RRSet {
   name: string;
   type: string;
   ttl: number;
-  changetype?: 'REPLACE' | 'DELETE';
+  changetype?: 'REPLACE' | 'DELETE' | 'EXTEND' | 'PRUNE';
   records: {
     content: string;
     disabled: boolean;

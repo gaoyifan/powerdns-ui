@@ -131,6 +131,9 @@ describe('DomainDetails Page', () => {
         await waitFor(() => {
             expect(mockPatch).toHaveBeenCalledWith(expect.objectContaining({
                 method: 'PATCH',
+                body: expect.stringContaining('"changetype":"EXTEND"')
+            }));
+            expect(mockPatch).toHaveBeenCalledWith(expect.objectContaining({
                 body: expect.stringContaining('"name":"new.example.com."')
             }));
         });
@@ -168,6 +171,12 @@ describe('DomainDetails Page', () => {
         await waitFor(() => {
             expect(mockPatch).toHaveBeenCalledWith(expect.objectContaining({
                 method: 'PATCH',
+                body: expect.stringContaining('"changetype":"PRUNE"')
+            }));
+            expect(mockPatch).toHaveBeenCalledWith(expect.objectContaining({
+                body: expect.stringContaining('"changetype":"EXTEND"')
+            }));
+            expect(mockPatch).toHaveBeenCalledWith(expect.objectContaining({
                 body: expect.stringContaining('10.10.10.10')
             }));
         });
@@ -209,7 +218,7 @@ describe('DomainDetails Page', () => {
         await waitFor(() => {
             expect(mockPatch).toHaveBeenCalledWith(expect.objectContaining({
                 method: 'PATCH',
-                body: expect.stringContaining('"changetype":"DELETE"')
+                body: expect.stringContaining('"changetype":"PRUNE"')
             }));
         });
     });

@@ -37,11 +37,17 @@ export const useDomainRecords = (domainName: string | undefined) => {
                 const { view } = parseZoneId(zone.id);
                 try {
                     const detailedZone = await apiClient.request<{ rrsets: RRSet[] }>(`/servers/localhost/zones/${zone.id}`);
-                    return (detailedZone.rrsets || []).map(rr => ({
-                        ...rr,
-                        view: view,
-                        zoneId: zone.id
-                    }));
+                    return (detailedZone.rrsets || []).flatMap(rr =>
+                        rr.records.map(record => ({
+                            name: rr.name,
+                            type: rr.type,
+                            ttl: rr.ttl,
+                            content: record.content,
+                            disabled: record.disabled,
+                            view: view,
+                            zoneId: zone.id
+                        }))
+                    );
                 } catch (e) {
                     console.error(`Failed to fetch zone details for ${zone.id}`, e);
                     return [];
@@ -51,11 +57,12 @@ export const useDomainRecords = (domainName: string | undefined) => {
             const results = await Promise.all(recordPromises);
             const flatRecords = results.flat();
 
-            // Sort by name, then type, then view
+            // Sort by name, then type, then view, then content
             flatRecords.sort((a, b) => {
                 if (a.name !== b.name) return a.name.localeCompare(b.name);
+                if (a.type !== b.type) return a.type.localeCompare(b.type);
                 if (a.view !== b.view) return a.view.localeCompare(b.view);
-                return a.type.localeCompare(b.type);
+                return a.content.localeCompare(b.content);
             });
 
             setUnifiedRecords(flatRecords);
