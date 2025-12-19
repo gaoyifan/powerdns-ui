@@ -186,7 +186,55 @@ export const Views: React.FC = () => {
         if (!viewToDelete) return;
         setDeleting(true);
         try {
-            const markerName = `_marker.${viewToDelete}.`;
+            // 1. Fetch all zones to find those in this view
+            const zones = await apiClient.request<Zone[]>('/servers/localhost/zones');
+            const loopView = viewToDelete; // Capture for loop
+
+            // 2. Delete associated zones
+            // Look for zones ending with ..viewName
+            // Also need to handle potential canonical names if API returns them differently, but usually endsWith is safe for ..view
+            const zonesToDelete = zones.filter(z => z.name.endsWith(`..${loopView}`) || z.name.endsWith(`..${loopView}.`));
+
+            for (const zone of zonesToDelete) {
+                try {
+                    await apiClient.request(`/servers/localhost/zones/${zone.name}`, { method: 'DELETE' });
+                } catch (e) {
+                    console.error(`Failed to delete zone ${zone.name}`, e);
+                }
+            }
+
+            // 3. Unmap associated networks
+            // We can get networks from the view state or fetch fresh
+            const viewObj = views.find(v => v.name === loopView);
+            if (viewObj) {
+                for (const net of viewObj.networks) {
+                    try {
+                        // Unmap by setting view to empty string
+                        // Try unencoded first, then encoded if 404 (logic similar to creation)
+                        try {
+                            await apiClient.request(`/servers/localhost/networks/${net}`, {
+                                method: 'PUT',
+                                body: JSON.stringify({ view: '' })
+                            });
+                        } catch (e: any) {
+                            if (e.status === 404) {
+                                const encoded = net.replace(/\//g, '%2F');
+                                await apiClient.request(`/servers/localhost/networks/${encoded}`, {
+                                    method: 'PUT',
+                                    body: JSON.stringify({ view: '' })
+                                });
+                            } else {
+                                throw e;
+                            }
+                        }
+                    } catch (e) {
+                        console.error(`Failed to unmap network ${net}`, e);
+                    }
+                }
+            }
+
+            // 4. Delete marker zone
+            const markerName = `_marker.${loopView}.`;
             await apiClient.request(`/servers/localhost/zones/${markerName}`, {
                 method: 'DELETE'
             });
