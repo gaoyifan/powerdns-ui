@@ -1,31 +1,67 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Trash2, Layers, ShieldCheck } from 'lucide-react';
+import { List, Network, ChevronDown, ChevronUp, Save, Plus, Trash2 } from 'lucide-react';
 import { apiClient } from '../api/client';
-import type { Zone } from '../types/api';
 import { parseZoneId } from '../utils/zoneUtils';
-import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Flash, Modal, ModalHeader, ModalTitle, ModalContent, ModalFooter, Input } from '../components';
+import { Button, Card, Flash, Input, Modal, ModalHeader, ModalTitle, ModalContent, ModalFooter } from '../components';
+import type { Zone } from '../types/api';
+
+interface ViewWithNetworks {
+    name: string;
+    networks: string[];
+}
+
+interface NetworkItem {
+    network: string; // CIDR
+    view?: string;
+}
 
 export const Views: React.FC = () => {
-    const [views, setViews] = useState<string[]>([]);
+    const [views, setViews] = useState<ViewWithNetworks[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [expandedView, setExpandedView] = useState<string | null>(null);
+
+    // Edit State
+    const [editNetworksContent, setEditNetworksContent] = useState('');
+    const [saving, setSaving] = useState(false);
+
+    // Create View State
+    const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
     const [newViewName, setNewViewName] = useState('');
     const [creating, setCreating] = useState(false);
 
-    const fetchViews = async () => {
+    const fetchData = async () => {
+        setLoading(true);
+        setError(null);
         try {
-            setLoading(true);
-            const res = await apiClient.request<Zone[]>('/servers/localhost/zones');
-            const foundViews = new Set<string>(['default']);
+            // 1. Fetch Zones to discover views (via _marker zones)
+            const zones = await apiClient.request<Zone[]>('/servers/localhost/zones');
 
-            res.forEach(zone => {
-                const { view } = parseZoneId(zone.name);
+            const foundViews = new Set<string>(['default']);
+            zones.forEach(z => {
+                // Check if it's a marker zone
+                if (z.name.startsWith('_marker.')) {
+                    const parts = z.name.split('.');
+                    // _marker.viewname.
+                    if (parts.length >= 3) {
+                        foundViews.add(parts[1]);
+                    }
+                }
+                // Fallback: check zone suffix
+                const { view } = parseZoneId(z.name);
                 if (view) foundViews.add(view);
             });
 
-            setViews(Array.from(foundViews).sort());
-            setError(null);
+            // 2. Fetch Networks
+            const networksRes = await apiClient.request<NetworkItem[]>('/servers/localhost/networks');
+            const allNetworks = Array.isArray(networksRes) ? networksRes : (networksRes as { networks: NetworkItem[] }).networks || [];
+
+            const viewList = Array.from(foundViews).sort().map(v => ({
+                name: v,
+                networks: allNetworks.filter(n => (n.view || 'default') === v).map(n => n.network)
+            }));
+
+            setViews(viewList);
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Failed to load views');
         } finally {
@@ -34,13 +70,89 @@ export const Views: React.FC = () => {
     };
 
     useEffect(() => {
-        fetchViews();
+        fetchData();
     }, []);
+
+    const toggleExpand = (viewName: string, networks: string[]) => {
+        if (expandedView === viewName) {
+            setExpandedView(null);
+            setEditNetworksContent('');
+        } else {
+            setExpandedView(viewName);
+            setEditNetworksContent(networks.join('\n'));
+        }
+    };
+
+    const handleSaveNetworks = async (viewName: string) => {
+        setSaving(true);
+        try {
+            const currentNetworks = views.find(v => v.name === viewName)?.networks || [];
+            const newNetworks = editNetworksContent.split('\n').map(s => s.trim()).filter(Boolean);
+
+            // Determine additions and removals
+            const toAdd = newNetworks.filter(n => !currentNetworks.includes(n));
+            const toRemove = currentNetworks.filter(n => !newNetworks.includes(n));
+
+            // Execute changes
+            // Removals
+            for (const net of toRemove) {
+                const encoded = net.replace(/\//g, '%2F'); // Encode slash
+                try {
+                    await apiClient.request(`/servers/localhost/networks/${encoded}`, {
+                        method: 'DELETE'
+                    });
+                } catch (e) {
+                    console.error(`Failed to delete network ${net}`, e);
+                }
+            }
+
+            // Additions
+            for (const net of toAdd) {
+                // v5 API: PUT /servers/localhost/networks/{ip}/{prefix} body: {view: ...}
+                // OR simple PUT /servers/localhost/networks/{cidr-encoded}
+                // Verification script used: PUT /networks/{encoded} { view: name }
+                // Try unencoded first, then encoded
+                try {
+                    // Try 1: Unencoded (let browser handle slash)
+                    await apiClient.request(`/servers/localhost/networks/${net}`, {
+                        method: 'PUT',
+                        body: JSON.stringify({ view: viewName })
+                    });
+                } catch (e: any) {
+                    if (e.status === 404) {
+                        // Try 2: Encoded slash
+                        const encoded = net.replace(/\//g, '%2F');
+                        try {
+                            await apiClient.request(`/servers/localhost/networks/${encoded}`, {
+                                method: 'PUT',
+                                body: JSON.stringify({ view: viewName })
+                            });
+                        } catch (e2) {
+                            console.error(`Failed to add network ${net} (encoded)`, e2);
+                            alert(`Failed to add ${net}: ${(e2 as Error).message}`);
+                        }
+                    } else {
+                        console.error(`Failed to add network ${net}`, e);
+                        alert(`Failed to add ${net}: ${(e as Error).message}`);
+                    }
+                }
+            }
+
+            await fetchData();
+            setExpandedView(null);
+
+        } catch (err: unknown) {
+            alert('Failed to save networks: ' + (err instanceof Error ? err.message : 'Unknown error'));
+        } finally {
+            setSaving(false);
+        }
+    };
 
     const handleCreateView = async () => {
         if (!newViewName) return;
         setCreating(true);
         try {
+            // Create a marker zone: _marker.<viewname>
             const markerName = `_marker.${newViewName}.`;
             await apiClient.request('/servers/localhost/zones', {
                 method: 'POST',
@@ -50,23 +162,18 @@ export const Views: React.FC = () => {
                     view: newViewName
                 })
             });
+            setIsCreateDialogOpen(false);
             setNewViewName('');
-            setIsDialogOpen(false);
-            fetchViews();
+            fetchData();
         } catch (err: unknown) {
-            const error = err as { status?: number; message?: string };
-            if (error.status === 409) {
-                setIsDialogOpen(false);
-                fetchViews();
-                return;
-            }
-            alert('Failed to create view: ' + (error.message || 'Unknown error'));
+            alert('Failed to create view: ' + (err instanceof Error ? err.message : 'Unknown error'));
         } finally {
             setCreating(false);
         }
     };
 
-    const handleDeleteView = async (viewName: string) => {
+    const handleDeleteView = async (viewName: string, e: React.MouseEvent) => {
+        e.stopPropagation();
         if (viewName === 'default') {
             alert('Cannot delete default view');
             return;
@@ -75,99 +182,122 @@ export const Views: React.FC = () => {
 
         try {
             const markerName = `_marker.${viewName}.`;
-            const markerId = `${markerName}.${viewName}`;
-
-            await apiClient.request(`/servers/localhost/zones/${markerId}`, {
+            await apiClient.request(`/servers/localhost/zones/${markerName}`, {
                 method: 'DELETE'
             });
-            fetchViews();
+            fetchData();
         } catch (err: unknown) {
-            alert('Failed to delete view marker: ' + (err instanceof Error ? err.message : 'Unknown error'));
+            console.error(err);
+            fetchData();
         }
-    }
+    };
 
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-end">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Views</h1>
-                    <p className="text-muted-foreground">Manage DNS partitioning and policy-based responses.</p>
+                    <p className="text-muted-foreground">Manage DNS views and their associated networks.</p>
                 </div>
-                <Button variant="primary" leadingIcon={Plus} onClick={() => setIsDialogOpen(true)} size="lg">
+                <Button variant="primary" leadingIcon={Plus} onClick={() => setIsCreateDialogOpen(true)} size="lg">
                     Create View
                 </Button>
             </div>
 
             {error && <Flash variant="danger">{error}</Flash>}
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-xl flex items-center gap-2">
-                        <Layers className="size-5 text-primary" />
-                        Available Views
-                    </CardTitle>
-                    <CardDescription>Views are implicitly created and managed via zone tags.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {loading ? (
-                        <div className="py-12 flex justify-center">
-                            <div className="animate-spin size-8 border-4 border-primary border-t-transparent rounded-full" />
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {views.map(view => (
-                                <div
-                                    key={view}
-                                    className="group relative overflow-hidden rounded-2xl border border-border/80 bg-background/50 p-6 shadow-sm hover:border-primary/30 hover:bg-accent/40 transition-all"
-                                >
-                                    <div className="flex items-center justify-between mb-2">
-                                        <div className="bg-primary/10 text-primary p-2 rounded-xl group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                                            <Layers className="size-5" />
-                                        </div>
-                                        {view !== 'default' && (
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="text-muted-foreground hover:text-destructive transition-colors h-8 w-8"
-                                                onClick={() => handleDeleteView(view)}
-                                            >
-                                                <Trash2 className="size-4" />
-                                            </Button>
-                                        )}
-                                    </div>
-                                    <h3 className="text-lg font-bold tracking-tight">{view}</h3>
-                                    <p className="text-xs text-muted-foreground mt-1 uppercase tracking-wider font-semibold">
-                                        {view === 'default' ? 'Standard Partition' : 'Custom Partition'}
-                                    </p>
+            <div className="grid gap-4">
+                {views.map((view) => (
+                    <Card key={view.name} className={`transition-all ${expandedView === view.name ? 'ring-2 ring-primary/20' : ''}`}>
+                        <div
+                            className="p-6 flex items-center justify-between cursor-pointer hover:bg-accent/30 transition-colors"
+                            onClick={() => toggleExpand(view.name, view.networks)}
+                        >
+                            <div className="flex items-center gap-4">
+                                <div className="bg-primary/10 text-primary p-2 rounded-lg">
+                                    <List className="size-5" />
                                 </div>
-                            ))}
+                                <div>
+                                    <h3 className="font-bold text-lg">{view.name}</h3>
+                                    <div className="text-sm text-muted-foreground flex items-center gap-2">
+                                        <Network className="size-3" />
+                                        {view.networks.length} mapped networks
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                {view.name !== 'default' && (
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="text-destructive hover:bg-destructive/10"
+                                        onClick={(e) => handleDeleteView(view.name, e)}
+                                    >
+                                        <Trash2 className="size-4" />
+                                    </Button>
+                                )}
+                                <Button variant="ghost" size="icon">
+                                    {expandedView === view.name ? <ChevronUp /> : <ChevronDown />}
+                                </Button>
+                            </div>
                         </div>
-                    )}
-                </CardContent>
-            </Card>
 
-            <Modal isOpen={isDialogOpen} onClose={() => setIsDialogOpen(false)}>
+                        {expandedView === view.name && (
+                            <div className="px-6 pb-6 pt-0 border-t border-border/50 animate-in slide-in-from-top-2 duration-200">
+                                <div className="mt-4">
+                                    <label className="block text-sm font-medium mb-2">
+                                        Mapped Networks (CIDR)
+                                    </label>
+                                    <textarea
+                                        className="w-full min-h-[150px] p-3 rounded-lg border border-input bg-background font-mono text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                        value={editNetworksContent}
+                                        onChange={e => setEditNetworksContent(e.target.value)}
+                                        placeholder="10.0.0.0/24&#10;192.168.1.0/24"
+                                    />
+                                    <p className="text-xs text-muted-foreground mt-2">
+                                        Enter one network per line. These networks will be mapped to the <strong>{view.name}</strong> view.
+                                    </p>
+                                    <div className="mt-4 flex justify-end gap-2">
+                                        <Button variant="ghost" onClick={() => setExpandedView(null)}>
+                                            Cancel
+                                        </Button>
+                                        <Button variant="primary" onClick={() => handleSaveNetworks(view.name)} loading={saving}>
+                                            <Save className="size-4 mr-2" />
+                                            Save Changes
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </Card>
+                ))}
+
+                {views.length === 0 && !loading && (
+                    <div className="text-center py-12 border-2 border-dashed border-border rounded-xl">
+                        <p className="text-muted-foreground">No views found.</p>
+                    </div>
+                )}
+            </div>
+
+            <Modal isOpen={isCreateDialogOpen} onClose={() => setIsCreateDialogOpen(false)}>
                 <ModalHeader>
                     <ModalTitle>Create New View</ModalTitle>
                 </ModalHeader>
-                <ModalContent className="space-y-6">
+                <ModalContent>
                     <Input
                         label="View Name"
                         value={newViewName}
                         onChange={e => setNewViewName(e.target.value)}
-                        placeholder="e.g. internal, external"
+                        placeholder="e.g. internal"
                         block
                         autoFocus
                     />
-                    <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 flex gap-3">
-                        <ShieldCheck className="size-5 text-primary shrink-0 mt-0.5" />
-                        <p className="text-xs text-muted-foreground leading-relaxed">
-                            Creating a view will create a hidden marker zone. This allows you to tag zones and map networks to this partition.
-                        </p>
-                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                        Creating a view will create a special marker zone <code>_marker.&lt;name&gt;</code>.
+                    </p>
                 </ModalContent>
                 <ModalFooter>
-                    <Button onClick={() => setIsDialogOpen(false)} variant="ghost">Cancel</Button>
+                    <Button onClick={() => setIsCreateDialogOpen(false)} variant="ghost">Cancel</Button>
                     <Button variant="primary" disabled={creating || !newViewName} onClick={handleCreateView} loading={creating}>
                         Create View
                     </Button>

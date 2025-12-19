@@ -3,9 +3,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Login } from './pages/Login';
 import { Views } from './pages/Views';
-import { Networks } from './pages/Networks';
-import { Zones } from './pages/Zones';
-import { ZoneDetails } from './pages/ZoneDetails';
+import { Domains } from './pages/Domains';
+import { DomainDetails } from './pages/DomainDetails';
 import { MainLayout } from './layouts/MainLayout';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -21,11 +20,10 @@ const AppRoutes = () => {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
-        <Route path="/" element={<div className="p-6 text-text-secondary">Dashboard Placeholder</div>} />
-        <Route path="/zones" element={<Zones />} />
-        <Route path="/zones/:name" element={<ZoneDetails />} />
+        <Route path="/" element={<Navigate to="/domains" replace />} />
+        <Route path="/domains" element={<Domains />} />
+        <Route path="/domains/:name" element={<DomainDetails />} />
         <Route path="/views" element={<Views />} />
-        <Route path="/networks" element={<Networks />} />
       </Route>
     </Routes>
   )

@@ -5,3 +5,4 @@ export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 export * from './Modal';
 export { Flash } from './Flash';
 export { Badge } from './Badge';
+export { InlineEditRow } from './InlineEditRow';
