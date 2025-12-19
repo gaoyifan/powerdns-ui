@@ -288,4 +288,44 @@ describe('DomainDetails Page', () => {
         // Edit button should be visible again
         expect(screen.getAllByTestId('edit-record-btn').length).toBeGreaterThan(0);
     });
+
+    it('automatically quotes TXT record content if missing', async () => {
+        const user = userEvent.setup();
+        const mockPatch = vi.fn().mockResolvedValue({});
+
+        setupMocks({
+            '/servers/localhost/zones/example.com.': (opts: any) => {
+                if (opts?.method === 'PATCH') return mockPatch(opts);
+                return Promise.resolve(mockZoneDetails);
+            }
+        });
+
+        renderWithRouter();
+        await screen.findByText('www.example.com.');
+
+        await user.click(screen.getByRole('button', { name: /add record/i }));
+
+        const tbody = document.querySelector('tbody');
+        const firstRow = tbody!.querySelector('tr');
+        const combos = within(firstRow!).getAllByRole('combobox');
+        const inputs = within(firstRow!).getAllByRole('textbox');
+
+        // Change type to TXT
+        await user.selectOptions(combos[1], 'TXT');
+
+        // Type record name and content (without quotes)
+        await user.clear(inputs[0]);
+        await user.type(inputs[0], 'txt.example.com.');
+        await user.clear(inputs[1]);
+        await user.type(inputs[1], 'some text content');
+
+        await user.click(screen.getByTestId('save-record-btn'));
+
+        await waitFor(() => {
+            expect(mockPatch).toHaveBeenCalledWith(expect.objectContaining({
+                method: 'PATCH',
+                body: expect.stringContaining('"content":"\\"some text content\\""')
+            }));
+        });
+    });
 });

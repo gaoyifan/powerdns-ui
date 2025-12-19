@@ -14,6 +14,17 @@ export const DomainDetails: React.FC = () => {
     // Edit State
     const [editingRecordKey, setEditingRecordKey] = useState<string | null>(null);
 
+    const formatRecordContent = (content: string, type: string) => {
+        if (type === 'TXT' || type === 'SPF') {
+            const trimmed = content.trim();
+            if (trimmed.length > 0 && !trimmed.startsWith('"')) {
+                return `"${trimmed.replace(/"/g, '\\"')}"`;
+            }
+        }
+        return content;
+    };
+
+
     // Record Creation State
     const [isAddingRecord, setIsAddingRecord] = useState(false);
 
@@ -49,6 +60,8 @@ export const DomainDetails: React.FC = () => {
             const nameChanged = data.name !== original.name;
             const typeChanged = data.type !== original.type;
             const viewChanged = data.view !== original.view;
+
+            const formattedContent = formatRecordContent(data.content, data.type);
 
             if (nameChanged || typeChanged || viewChanged) {
                 // Determine target zone ID
@@ -92,7 +105,7 @@ export const DomainDetails: React.FC = () => {
                             ttl: data.ttl,
                             changetype: 'EXTEND',
                             records: [{
-                                content: data.content,
+                                content: formattedContent,
                                 disabled: false
                             }]
                         }]
@@ -136,7 +149,7 @@ export const DomainDetails: React.FC = () => {
                                 ttl: data.ttl,
                                 changetype: 'EXTEND',
                                 records: [{
-                                    content: data.content,
+                                    content: formattedContent,
                                     disabled: false
                                 }]
                             }
@@ -151,6 +164,7 @@ export const DomainDetails: React.FC = () => {
             alert('Failed to update record: ' + (err instanceof Error ? err.message : 'Unknown error'));
         }
     };
+
 
     const handleDeleteRecord = async (record: RecordWithView) => {
         try {
@@ -178,6 +192,8 @@ export const DomainDetails: React.FC = () => {
     const handleAddRecord = async (data: { name: string; type: string; ttl: number; content: string; view: string }) => {
         if (!domainName) return;
         try {
+            const formattedContent = formatRecordContent(data.content, data.type);
+
             // Construct target Zone ID based on selected view
             let targetZoneId = domainName;
             if (!targetZoneId.endsWith('.')) targetZoneId += '.';
@@ -223,7 +239,7 @@ export const DomainDetails: React.FC = () => {
                         ttl: data.ttl,
                         changetype: 'EXTEND',
                         records: [{
-                            content: data.content,
+                            content: formattedContent,
                             disabled: false
                         }]
                     }]
@@ -236,6 +252,7 @@ export const DomainDetails: React.FC = () => {
             alert('Failed to add record: ' + (err instanceof Error ? err.message : 'Unknown error'));
         }
     };
+
 
 
 
