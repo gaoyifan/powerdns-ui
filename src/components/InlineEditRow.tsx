@@ -54,14 +54,16 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
                     value={view}
                     onChange={e => setView(e.target.value)}
                     options={availableViews.map(v => ({ value: v, label: v }))}
-                    className="h-9 min-w-[100px]"
+                    className="h-9 w-full"
+                    block
                 />
             </td>
             <td className="px-6 py-4 align-top">
                 <Input
                     value={name}
                     onChange={e => setName(e.target.value)}
-                    className="h-9 min-w-[200px]"
+                    className="h-9 w-full"
+                    block
                 />
             </td>
             <td className="px-6 py-4 align-top">
@@ -69,7 +71,8 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
                     value={type}
                     onChange={e => setType(e.target.value)}
                     options={recordTypes.map(t => ({ value: t, label: t }))}
-                    className="h-9 min-w-[90px]"
+                    className="h-9 w-full"
+                    block
                 />
             </td>
             <td className="px-6 py-4 align-top">
@@ -77,14 +80,15 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
                     type="number"
                     value={ttl}
                     onChange={e => setTtl(Number(e.target.value))}
-                    className="w-24 h-9"
+                    className="h-9 w-full [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    block
                 />
             </td>
             <td className="px-6 py-4 align-top">
                 <Input
                     value={content}
                     onChange={e => setContent(e.target.value)}
-                    className="h-9 min-w-[300px]"
+                    className="h-9 w-full"
                     autoFocus
                     block
                     onKeyDown={(e) => {

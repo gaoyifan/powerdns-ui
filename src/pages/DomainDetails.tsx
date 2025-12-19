@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Plus, ChevronRight, LayoutList, ShieldCheck, Search } from 'lucide-react';
+import { Plus, ChevronRight, LayoutList, ShieldCheck, Search, Pencil } from 'lucide-react';
 import { apiClient } from '../api/client';
 import type { RecordWithView } from '../types/domain';
 import { useDomainRecords } from '../hooks/useDomainRecords';
@@ -294,10 +294,10 @@ export const DomainDetails: React.FC = () => {
                             <table className="w-full text-left border-collapse">
                                 <thead>
                                     <tr className="bg-muted/30 border-b border-border">
-                                        <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">View</th>
-                                        <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Name</th>
-                                        <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Type</th>
-                                        <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider w-24">TTL</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider w-[150px]">View</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider w-[250px]">Name</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider w-[120px]">Type</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider w-[110px]">TTL</th>
                                         <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Content</th>
                                         <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider w-[160px]">Actions</th>
                                     </tr>
@@ -358,8 +358,14 @@ export const DomainDetails: React.FC = () => {
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     {rr.type !== 'SOA' && (
-                                                        <Button variant="ghost" size="sm" onClick={() => setEditingRecordKey(uniqueKey)}>
-                                                            Edit
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="size-8 text-muted-foreground hover:text-foreground"
+                                                            onClick={() => setEditingRecordKey(uniqueKey)}
+                                                            title="Edit Record"
+                                                        >
+                                                            <Pencil className="size-4" />
                                                         </Button>
                                                     )}
                                                 </td>
