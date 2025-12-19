@@ -62,6 +62,7 @@ export const Domains: React.FC = () => {
             const grouped: Record<string, UnifiedZone> = {};
             zonesRes.forEach(zone => {
                 const { name, view } = parseZoneId(zone.id);
+                if (name.startsWith('_marker.')) return;
                 if (!grouped[name]) {
                     grouped[name] = { name, views: [], ids: [] };
                 }
