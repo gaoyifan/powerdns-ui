@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { API_BASE_URL } from '../constants';
 import { Key } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -19,7 +20,7 @@ export const Login: React.FC = () => {
         try {
             localStorage.setItem('pdns_api_key_test', key);
             const headers = { 'X-API-Key': key };
-            const res = await fetch(`${import.meta.env.VITE_API_BASE || '/api/v1'}/servers/localhost`, { headers });
+            const res = await fetch(`${API_BASE_URL}/servers/localhost`, { headers });
 
             if (!res.ok) {
                 throw new Error('Invalid API Key');

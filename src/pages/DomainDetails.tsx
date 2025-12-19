@@ -1,22 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Plus, ChevronRight, LayoutList, ShieldCheck } from 'lucide-react';
 import { apiClient } from '../api/client';
-import { parseZoneId } from '../utils/zoneUtils';
-import type { RRSet, Zone } from '../types/api';
+import type { RecordWithView } from '../types/domain';
+import { useDomainRecords } from '../hooks/useDomainRecords';
 import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Flash, Modal, ModalHeader, ModalTitle, ModalContent, ModalFooter, Input, Select, Badge, InlineEditRow, Loading } from '../components';
-
-interface RecordWithView extends RRSet {
-    view: string;
-    zoneId: string; // The specific API zone ID (e.g. example.com..testview)
-}
 
 export const DomainDetails: React.FC = () => {
     const { name: domainName } = useParams<{ name: string }>();
-    const [unifiedRecords, setUnifiedRecords] = useState<RecordWithView[]>([]);
-    const [availableViews, setAvailableViews] = useState<string[]>(['default']);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const { unifiedRecords, availableViews, loading, error, refetch } = useDomainRecords(domainName);
 
     // Edit State
     const [editingRecordKey, setEditingRecordKey] = useState<string | null>(null);
@@ -29,77 +21,6 @@ export const DomainDetails: React.FC = () => {
     const [newRecordContent, setNewRecordContent] = useState('');
     const [selectedTargetView, setSelectedTargetView] = useState('default');
     const [creatingRecord, setCreatingRecord] = useState(false);
-
-    const fetchAllData = async () => {
-        if (!domainName) return;
-        setLoading(true);
-        setError(null);
-        try {
-            // 1. Fetch ALL zones to discover which views this domain exists in
-            // Ideally backend would support filtering, but v5 API list is simple.
-            const allZones = await apiClient.request<Zone[]>('/servers/localhost/zones');
-
-            // 2. Identify relevant zones for this domain
-            const relevantZones = allZones.filter(z => {
-                const parsed = parseZoneId(z.id); // Assuming z.id holds the key, or z.name?
-                // parseZoneId logic: checks if name ends with ..viewname or matches domain exactly
-                // We need to match the domain part.
-                return parsed.name === domainName || parsed.name === domainName + '.';
-            });
-
-            // 3. Update available views for the "Add Record" dialog (plus any others discovered globally? maybe just this domain's context)
-            // Actually "Add Record" might want to let you add to a NEW view? 
-            // For now let's stick to adding to existing views or 'default'.
-            // If the user wants to add to a view where the domain doesn't exist yet, they might need to "add domain to view" first?
-            // The requirement says "remove the concept of switching Views at the zone level".
-            // Implementation: We'll assume we can list all possible views from system metadata (found via _marker zones)
-
-            // Let's find ALL system views first to populate the dropdown
-            const foundViews = new Set<string>(['default']);
-            allZones.forEach(z => {
-                const { view } = parseZoneId(z.name);
-                if (view && view !== 'default') foundViews.add(view);
-            });
-            setAvailableViews(Array.from(foundViews).sort());
-
-            // 4. Fetch Details for each relevant zone to get records
-            const recordPromises = relevantZones.map(async (zone) => {
-                const { view } = parseZoneId(zone.id);
-                try {
-                    const detailedZone = await apiClient.request<{ rrsets: RRSet[] }>(`/servers/localhost/zones/${zone.id}`);
-                    return (detailedZone.rrsets || []).map(rr => ({
-                        ...rr,
-                        view: view,
-                        zoneId: zone.id
-                    }));
-                } catch (e) {
-                    console.error(`Failed to fetch zone details for ${zone.id}`, e);
-                    return [];
-                }
-            });
-
-            const results = await Promise.all(recordPromises);
-            const flatRecords = results.flat();
-
-            // Sort by name, then type, then view
-            flatRecords.sort((a, b) => {
-                if (a.name !== b.name) return a.name.localeCompare(b.name);
-                if (a.view !== b.view) return a.view.localeCompare(b.view);
-                return a.type.localeCompare(b.type);
-            });
-
-            setUnifiedRecords(flatRecords);
-
-        } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Failed to load records');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchAllData();
-    }, [domainName]);
 
     const handleSaveRecord = async (original: RecordWithView, data: { name: string; type: string; ttl: number; content: string; view: string }) => {
         try {
@@ -119,7 +40,7 @@ export const DomainDetails: React.FC = () => {
                 })
             });
             setEditingRecordKey(null);
-            fetchAllData();
+            refetch();
         } catch (err: unknown) {
             alert('Failed to update record: ' + (err instanceof Error ? err.message : 'Unknown error'));
         }
@@ -139,7 +60,7 @@ export const DomainDetails: React.FC = () => {
                 })
             });
             setEditingRecordKey(null);
-            fetchAllData();
+            refetch();
         } catch (err: unknown) {
             alert('Failed to delete record: ' + (err instanceof Error ? err.message : 'Unknown error'));
         }
@@ -208,7 +129,7 @@ export const DomainDetails: React.FC = () => {
             setIsRecordDialogOpen(false);
             setNewRecordName('');
             setNewRecordContent('');
-            fetchAllData();
+            refetch();
 
         } catch (err: unknown) {
             alert('Failed to add record: ' + (err instanceof Error ? err.message : 'Unknown error'));

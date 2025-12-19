@@ -1,67 +1,23 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Plus, Globe, ExternalLink, Activity, Server, Layers, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { apiClient } from '../api/client';
-import type { Zone, Server as ServerType, StatisticItem } from '../types/api';
-import { parseZoneId } from '../utils/zoneUtils';
+import { useZones } from '../hooks/useZones';
 import { formatUptime } from '../utils/formatUtils';
 import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Flash, Modal, ModalHeader, ModalTitle, ModalContent, ModalFooter, Input, Select, Badge, StatsCard, Loading, EmptyState } from '../components';
 
-interface UnifiedZone {
-    name: string;
-    views: string[];
-    ids: string[];
-}
+
 
 
 
 export const Domains: React.FC = () => {
-    const [unifiedZones, setUnifiedZones] = useState<UnifiedZone[]>([]);
-    const [serverInfo, setServerInfo] = useState<ServerType | null>(null);
-    const [stats, setStats] = useState<StatisticItem[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const { unifiedZones, serverInfo, stats, loading, error, refetch } = useZones();
 
     // Create Modal State
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [newZoneName, setNewZoneName] = useState('');
     const [newZoneType, setNewZoneType] = useState('Native');
     const [creating, setCreating] = useState(false);
-
-    const fetchData = async () => {
-        try {
-            setLoading(true);
-            const [zonesRes, serverRes, statsRes] = await Promise.all([
-                apiClient.request<Zone[]>('/servers/localhost/zones'),
-                apiClient.request<ServerType>('/servers/localhost'),
-                apiClient.request<StatisticItem[]>('/servers/localhost/statistics').catch(() => [] as StatisticItem[])
-            ]);
-
-            const grouped: Record<string, UnifiedZone> = {};
-            zonesRes.forEach(zone => {
-                const { name, view } = parseZoneId(zone.id);
-                if (name.startsWith('_marker.')) return;
-                if (!grouped[name]) {
-                    grouped[name] = { name, views: [], ids: [] };
-                }
-                grouped[name].views.push(view);
-                grouped[name].ids.push(zone.id);
-            });
-
-            setUnifiedZones(Object.values(grouped));
-            setServerInfo(serverRes);
-            setStats(statsRes);
-            setError(null);
-        } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Failed to load data');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchData();
-    }, []);
 
     const handleCreateZone = async () => {
         if (!newZoneName) return;
@@ -81,7 +37,7 @@ export const Domains: React.FC = () => {
 
             setNewZoneName('');
             setIsDialogOpen(false);
-            fetchData();
+            refetch();
         } catch (err: unknown) {
             alert('Failed to create zone: ' + (err instanceof Error ? err.message : 'Unknown error'));
         } finally {
@@ -99,7 +55,7 @@ export const Domains: React.FC = () => {
             await Promise.all(ids.map(id =>
                 apiClient.request(`/servers/localhost/zones/${id}`, { method: 'DELETE' })
             ));
-            fetchData();
+            refetch();
         } catch (err) {
             alert('Failed to delete domain: ' + (err instanceof Error ? err.message : 'Unknown error'));
         }

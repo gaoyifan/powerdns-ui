@@ -8,19 +8,21 @@ interface AuthContextType {
     logout: () => void;
 }
 
+import { STORAGE_KEYS } from '../constants';
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [apiKey, setApiKey] = useState<string | null>(localStorage.getItem('pdns_api_key'));
+    const [apiKey, setApiKey] = useState<string | null>(localStorage.getItem(STORAGE_KEYS.API_KEY));
     const user = apiKey ? { username: 'Admin' } : null; // Mock user for now
 
     const login = (key: string) => {
-        localStorage.setItem('pdns_api_key', key);
+        localStorage.setItem(STORAGE_KEYS.API_KEY, key);
         setApiKey(key);
     };
 
     const logout = () => {
-        localStorage.removeItem('pdns_api_key');
+        localStorage.removeItem(STORAGE_KEYS.API_KEY);
         setApiKey(null);
     };
 
