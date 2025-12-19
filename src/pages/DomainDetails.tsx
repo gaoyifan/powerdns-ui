@@ -4,7 +4,7 @@ import { Plus, ChevronRight, LayoutList, ShieldCheck, Search, Pencil } from 'luc
 import { apiClient } from '../api/client';
 import type { RecordWithView } from '../types/domain';
 import { useDomainRecords } from '../hooks/useDomainRecords';
-import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Flash, Modal, ModalHeader, ModalTitle, ModalContent, ModalFooter, Input, Select, Badge, InlineEditRow, Loading } from '../components';
+import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Flash, Input, Badge, InlineEditRow, Loading } from '../components';
 import { cn } from '../lib/utils';
 
 export const DomainDetails: React.FC = () => {
@@ -15,13 +15,7 @@ export const DomainDetails: React.FC = () => {
     const [editingRecordKey, setEditingRecordKey] = useState<string | null>(null);
 
     // Record Creation State
-    const [isRecordDialogOpen, setIsRecordDialogOpen] = useState(false);
-    const [newRecordName, setNewRecordName] = useState('');
-    const [newRecordType, setNewRecordType] = useState('A');
-    const [newRecordTTL, setNewRecordTTL] = useState(3600);
-    const [newRecordContent, setNewRecordContent] = useState('');
-    const [selectedTargetView, setSelectedTargetView] = useState('default');
-    const [creatingRecord, setCreatingRecord] = useState(false);
+    const [isAddingRecord, setIsAddingRecord] = useState(false);
 
     // Search State
     const [searchQuery, setSearchQuery] = useState('');
@@ -163,30 +157,24 @@ export const DomainDetails: React.FC = () => {
         }
     };
 
-    const handleAddRecord = async () => {
-        if (!domainName || !newRecordContent) return;
-        setCreatingRecord(true);
+    const handleAddRecord = async (data: { name: string; type: string; ttl: number; content: string; view: string }) => {
+        if (!domainName) return;
         try {
             // Construct target Zone ID based on selected view
-            // Logic: if view is default, id is domainName. If view is custom, id is domainName..view
-            // Note: We need to handle trailing dots carefully.
             let targetZoneId = domainName;
             if (!targetZoneId.endsWith('.')) targetZoneId += '.';
 
-            if (selectedTargetView !== 'default') {
-                // v5 convention found in verification: domain.rstrip(.) .. view
-                const baseName = targetZoneId.slice(0, -1); // remove trailing dot
-                targetZoneId = `${baseName}..${selectedTargetView}`;
+            if (data.view !== 'default') {
+                const baseName = targetZoneId.slice(0, -1);
+                targetZoneId = `${baseName}..${data.view}`;
             }
 
-            // Check if zone exists, if not create it (implicit view creation for domain)
+            // Check if zone exists, if not create it
             let zoneExists = false;
             try {
                 await apiClient.request(`/servers/localhost/zones/${targetZoneId}`);
                 zoneExists = true;
-            } catch (e) {
-                // Ignore 404
-            }
+            } catch (e) { /* Ignore 404 */ }
 
             if (!zoneExists) {
                 await apiClient.request('/servers/localhost/zones', {
@@ -195,12 +183,13 @@ export const DomainDetails: React.FC = () => {
                         name: targetZoneId,
                         kind: 'Native',
                         nameservers: ['ns1.localhost.'],
-                        view: selectedTargetView !== 'default' ? selectedTargetView : undefined
+                        view: data.view !== 'default' ? data.view : undefined
                     })
                 });
             }
 
-            let rrName = newRecordName;
+            // Normalize record name
+            let rrName = data.name;
             if (rrName === '@' || rrName === '') rrName = domainName;
             else if (!rrName.endsWith(domainName) && !rrName.endsWith(domainName + '.')) {
                 rrName += '.' + domainName;
@@ -212,30 +201,25 @@ export const DomainDetails: React.FC = () => {
                 body: JSON.stringify({
                     rrsets: [{
                         name: rrName,
-                        type: newRecordType,
-                        ttl: Number(newRecordTTL),
+                        type: data.type,
+                        ttl: data.ttl,
                         changetype: 'REPLACE',
                         records: [{
-                            content: newRecordContent,
+                            content: data.content,
                             disabled: false
                         }]
                     }]
                 })
             });
 
-            setIsRecordDialogOpen(false);
-            setNewRecordName('');
-            setNewRecordContent('');
+            setIsAddingRecord(false);
             refetch();
-
         } catch (err: unknown) {
             alert('Failed to add record: ' + (err instanceof Error ? err.message : 'Unknown error'));
-        } finally {
-            setCreatingRecord(false);
         }
     };
 
-    const recordTypes = ['A', 'AAAA', 'CNAME', 'TXT', 'MX', 'NS', 'PTR', 'SRV', 'NAPTR'];
+
 
     return (
         <div className="space-y-6">
@@ -256,7 +240,7 @@ export const DomainDetails: React.FC = () => {
                         <p className="text-muted-foreground text-sm">Managing records across all views</p>
                     </div>
                 </div>
-                <Button variant="primary" leadingIcon={Plus} onClick={() => setIsRecordDialogOpen(true)} size="lg">
+                <Button variant="primary" leadingIcon={Plus} onClick={() => setIsAddingRecord(true)} size="lg" disabled={isAddingRecord}>
                     Add Record
                 </Button>
             </div>
@@ -303,6 +287,20 @@ export const DomainDetails: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-border/60">
+                                    {isAddingRecord && (
+                                        <InlineEditRow
+                                            record={{
+                                                name: '',
+                                                type: 'A',
+                                                ttl: 3600,
+                                                content: '',
+                                                view: 'default'
+                                            }}
+                                            availableViews={availableViews}
+                                            onSave={handleAddRecord}
+                                            onCancel={() => setIsAddingRecord(false)}
+                                        />
+                                    )}
                                     {unifiedRecords.length === 0 ? (
                                         <tr>
                                             <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground italic">
@@ -378,65 +376,6 @@ export const DomainDetails: React.FC = () => {
                     )}
                 </CardContent>
             </Card>
-
-            <Modal isOpen={isRecordDialogOpen} onClose={() => setIsRecordDialogOpen(false)}>
-                <ModalHeader>
-                    <ModalTitle>Add Record</ModalTitle>
-                </ModalHeader>
-                <ModalContent className="space-y-6">
-                    <div className="grid grid-cols-2 gap-6">
-                        <Select
-                            label="Target View"
-                            value={selectedTargetView}
-                            onChange={e => setSelectedTargetView(e.target.value)}
-                            options={availableViews.map(v => ({ value: v, label: v }))}
-                            block
-                        />
-                    </div>
-                    <div className="grid grid-cols-2 gap-6">
-                        <Input
-                            label="Name"
-                            value={newRecordName}
-                            onChange={e => setNewRecordName(e.target.value)}
-                            placeholder="@ or sub"
-                            block
-                            autoFocus
-                        />
-                        <Select
-                            label="Record Type"
-                            value={newRecordType}
-                            onChange={e => setNewRecordType(e.target.value)}
-                            block
-                            options={recordTypes.map(t => ({ value: t, label: t }))}
-                        />
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-6">
-                        <Input
-                            label="TTL"
-                            type="number"
-                            value={newRecordTTL}
-                            onChange={e => setNewRecordTTL(Number(e.target.value))}
-                            block
-                        />
-                        <div className="col-span-2">
-                            <Input
-                                label="Content"
-                                value={newRecordContent}
-                                onChange={e => setNewRecordContent(e.target.value)}
-                                placeholder="1.2.3.4"
-                                block
-                            />
-                        </div>
-                    </div>
-                </ModalContent>
-                <ModalFooter>
-                    <Button onClick={() => setIsRecordDialogOpen(false)} variant="ghost">Cancel</Button>
-                    <Button variant="primary" disabled={creatingRecord || !newRecordContent} onClick={handleAddRecord} loading={creatingRecord}>
-                        Save Record
-                    </Button>
-                </ModalFooter>
-            </Modal>
         </div>
     );
 }

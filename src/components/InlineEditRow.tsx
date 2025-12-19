@@ -13,7 +13,7 @@ interface InlineEditRowProps {
     };
     availableViews: string[];
     onSave: (data: { name: string; type: string; ttl: number; content: string; view: string }) => Promise<void>;
-    onDelete: () => Promise<void>;
+    onDelete?: () => Promise<void>;
     onCancel: () => void;
 }
 
@@ -39,7 +39,7 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
         if (!confirm('Are you sure you want to delete this record?')) return;
         setDeleting(true);
         try {
-            await onDelete();
+            if (onDelete) await onDelete();
         } finally {
             setDeleting(false);
         }
@@ -118,16 +118,18 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
                     >
                         <X className="size-4" />
                     </Button>
-                    <Button
-                        size="icon"
-                        variant="ghost"
-                        className="size-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                        onClick={handleDelete}
-                        loading={deleting}
-                        title="Delete"
-                    >
-                        <Trash2 className="size-4" />
-                    </Button>
+                    {onDelete && (
+                        <Button
+                            size="icon"
+                            variant="ghost"
+                            className="size-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={handleDelete}
+                            loading={deleting}
+                            title="Delete"
+                        >
+                            <Trash2 className="size-4" />
+                        </Button>
+                    )}
                 </div>
             </td>
         </tr>
