@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button, Input, Badge } from '../components';
+import { Button, Input, Select } from '../components';
 import { Save, Trash2, X } from 'lucide-react';
 
 interface InlineEditRowProps {
@@ -11,14 +11,16 @@ interface InlineEditRowProps {
         view: string;
         disabled?: boolean;
     };
+    availableViews: string[];
     onSave: (data: { name: string; type: string; ttl: number; content: string; view: string }) => Promise<void>;
     onDelete: () => Promise<void>;
     onCancel: () => void;
 }
 
-export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, onSave, onDelete, onCancel }) => {
-    const [name] = useState(record.name);
-    const [type] = useState(record.type);
+export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableViews, onSave, onDelete, onCancel }) => {
+    const [name, setName] = useState(record.name);
+    const [type, setType] = useState(record.type);
+    const [view, setView] = useState(record.view);
     const [ttl, setTtl] = useState(record.ttl);
     const [content, setContent] = useState(record.content);
     const [saving, setSaving] = useState(false);
@@ -27,7 +29,7 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, onSave, on
     const handleSave = async () => {
         setSaving(true);
         try {
-            await onSave({ name, type, ttl, content, view: record.view });
+            await onSave({ name, type, ttl, content, view });
         } finally {
             setSaving(false);
         }
@@ -43,26 +45,32 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, onSave, on
         }
     };
 
+    const recordTypes = ['A', 'AAAA', 'CNAME', 'TXT', 'MX', 'NS', 'PTR', 'SRV', 'NAPTR'];
+
     return (
         <tr className="bg-muted/30 border-b border-primary/20">
             <td className="px-6 py-4 align-top">
-                <div className="pt-2">
-                    <Badge variant={record.view === 'default' ? 'secondary' : 'default'} className="whitespace-nowrap">
-                        {record.view}
-                    </Badge>
-                </div>
+                <Select
+                    value={view}
+                    onChange={e => setView(e.target.value)}
+                    options={availableViews.map(v => ({ value: v, label: v }))}
+                    className="h-9 min-w-[100px]"
+                />
             </td>
             <td className="px-6 py-4 align-top">
-                <div className="pt-2">
-                    <span className="text-sm font-medium text-muted-foreground">{name}</span>
-                </div>
+                <Input
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    className="h-9 min-w-[200px]"
+                />
             </td>
             <td className="px-6 py-4 align-top">
-                <div className="pt-2">
-                    <Badge variant="outline" className="bg-background opacity-70 whitespace-nowrap">
-                        {type}
-                    </Badge>
-                </div>
+                <Select
+                    value={type}
+                    onChange={e => setType(e.target.value)}
+                    options={recordTypes.map(t => ({ value: t, label: t }))}
+                    className="h-9 min-w-[90px]"
+                />
             </td>
             <td className="px-6 py-4 align-top">
                 <Input

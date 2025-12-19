@@ -5,6 +5,7 @@ import { apiClient } from '../api/client';
 import type { RecordWithView } from '../types/domain';
 import { useDomainRecords } from '../hooks/useDomainRecords';
 import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Flash, Modal, ModalHeader, ModalTitle, ModalContent, ModalFooter, Input, Select, Badge, InlineEditRow, Loading } from '../components';
+import { cn } from '../lib/utils';
 
 export const DomainDetails: React.FC = () => {
     const { name: domainName } = useParams<{ name: string }>();
@@ -25,33 +26,116 @@ export const DomainDetails: React.FC = () => {
     // Search State
     const [searchQuery, setSearchQuery] = useState('');
 
-    const filteredRecords = unifiedRecords.filter(record => {
-        const query = searchQuery.toLowerCase();
-        return (
-            record.name.toLowerCase().includes(query) ||
-            record.type.toLowerCase().includes(query) ||
-            record.records.some(r => r.content.toLowerCase().includes(query)) ||
-            record.view.toLowerCase().includes(query)
-        );
-    });
+    const filteredRecords = unifiedRecords
+        .filter(record => {
+            // Hide non-default SOA records
+            if (record.type === 'SOA' && record.view !== 'default') return false;
+            return true;
+        })
+        .filter(record => {
+            const query = searchQuery.toLowerCase();
+            return (
+                record.name.toLowerCase().includes(query) ||
+                record.type.toLowerCase().includes(query) ||
+                record.records.some(r => r.content.toLowerCase().includes(query)) ||
+                record.view.toLowerCase().includes(query)
+            );
+        })
+        .sort((a, b) => {
+            // Default SOA at top
+            const aIsDefaultSoa = a.type === 'SOA' && a.view === 'default';
+            const bIsDefaultSoa = b.type === 'SOA' && b.view === 'default';
+            if (aIsDefaultSoa && !bIsDefaultSoa) return -1;
+            if (!aIsDefaultSoa && bIsDefaultSoa) return 1;
+            return 0;
+        });
 
     const handleSaveRecord = async (original: RecordWithView, data: { name: string; type: string; ttl: number; content: string; view: string }) => {
         try {
-            await apiClient.request(`/servers/localhost/zones/${original.zoneId}`, {
-                method: 'PATCH',
-                body: JSON.stringify({
-                    rrsets: [{
-                        name: original.name,
-                        type: original.type,
-                        ttl: data.ttl,
-                        changetype: 'REPLACE',
-                        records: [{
-                            content: data.content,
-                            disabled: false
+            const nameChanged = data.name !== original.name;
+            const typeChanged = data.type !== original.type;
+            const viewChanged = data.view !== original.view;
+
+            if (nameChanged || typeChanged || viewChanged) {
+                // Determine target zone ID
+                let targetZoneId = domainName || '';
+                if (!targetZoneId.endsWith('.')) targetZoneId += '.';
+                if (data.view !== 'default') {
+                    const baseName = targetZoneId.slice(0, -1);
+                    targetZoneId = `${baseName}..${data.view}`;
+                }
+
+                // Ensure target zone exists
+                let zoneExists = false;
+                try {
+                    await apiClient.request(`/servers/localhost/zones/${targetZoneId}`);
+                    zoneExists = true;
+                } catch (e) { /* ignore 404 */ }
+
+                if (!zoneExists) {
+                    await apiClient.request('/servers/localhost/zones', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            name: targetZoneId,
+                            kind: 'Native',
+                            nameservers: ['ns1.localhost.'],
+                            view: data.view !== 'default' ? data.view : undefined
+                        })
+                    });
+                }
+
+                // Format record name correctly
+                let newRrName = data.name;
+                if (!newRrName.endsWith('.')) newRrName += '.';
+
+                // 1. ADD/UPDATE the new record FIRST
+                await apiClient.request(`/servers/localhost/zones/${targetZoneId}`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({
+                        rrsets: [{
+                            name: newRrName,
+                            type: data.type,
+                            ttl: data.ttl,
+                            changetype: 'REPLACE',
+                            records: [{
+                                content: data.content,
+                                disabled: false
+                            }]
                         }]
-                    }]
-                })
-            });
+                    })
+                });
+
+                // 2. DELETE the old record ONLY IF the add was successful
+                await apiClient.request(`/servers/localhost/zones/${original.zoneId}`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({
+                        rrsets: [{
+                            name: original.name,
+                            type: original.type,
+                            changetype: 'DELETE',
+                            records: []
+                        }]
+                    })
+                });
+            } else {
+                // Pure update (TTL/Content change)
+                await apiClient.request(`/servers/localhost/zones/${original.zoneId}`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({
+                        rrsets: [{
+                            name: original.name,
+                            type: original.type,
+                            ttl: data.ttl,
+                            changetype: 'REPLACE',
+                            records: [{
+                                content: data.content,
+                                disabled: false
+                            }]
+                        }]
+                    })
+                });
+            }
+
             setEditingRecordKey(null);
             refetch();
         } catch (err: unknown) {
@@ -215,7 +299,7 @@ export const DomainDetails: React.FC = () => {
                                         <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Type</th>
                                         <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider w-24">TTL</th>
                                         <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Content</th>
-                                        <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider w-[100px]">Actions</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider w-[160px]">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-border/60">
@@ -246,6 +330,7 @@ export const DomainDetails: React.FC = () => {
                                                         content: rr.records.map(r => r.content).join('\n'), // Simplified for now
                                                         view: rr.view
                                                     }}
+                                                    availableViews={availableViews}
                                                     onSave={async (data) => handleSaveRecord(rr, data)}
                                                     onDelete={async () => handleDeleteRecord(rr)}
                                                     onCancel={() => setEditingRecordKey(null)}
@@ -254,7 +339,10 @@ export const DomainDetails: React.FC = () => {
                                         }
 
                                         return (
-                                            <tr key={uniqueKey} className="hover:bg-accent/40 transition-colors group">
+                                            <tr key={uniqueKey} className={cn(
+                                                "hover:bg-accent/40 transition-colors group",
+                                                rr.type === 'SOA' && "bg-primary/[0.03] dark:bg-primary/10"
+                                            )}>
                                                 <td className="px-6 py-4">
                                                     <Badge variant={rr.view === 'default' ? 'secondary' : 'default'}>{rr.view}</Badge>
                                                 </td>
@@ -269,9 +357,11 @@ export const DomainDetails: React.FC = () => {
                                                     ))}
                                                 </td>
                                                 <td className="px-6 py-4">
-                                                    <Button variant="ghost" size="sm" onClick={() => setEditingRecordKey(uniqueKey)}>
-                                                        Edit
-                                                    </Button>
+                                                    {rr.type !== 'SOA' && (
+                                                        <Button variant="ghost" size="sm" onClick={() => setEditingRecordKey(uniqueKey)}>
+                                                            Edit
+                                                        </Button>
+                                                    )}
                                                 </td>
                                             </tr>
                                         );

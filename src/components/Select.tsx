@@ -32,7 +32,7 @@ export const Select: React.FC<SelectProps> = ({
                 id={selectId}
                 className={`
           block rounded-md border border-border bg-bg-card
-          px-3 py-2 pr-8 text-base text-text-primary
+          px-3 py-2 pr-8 text-sm text-text-primary
           focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
           disabled:bg-disabled/20 disabled:text-text-muted disabled:cursor-not-allowed
           transition-all duration-[var(--transition-fast)]
