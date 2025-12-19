@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Plus, ChevronRight } from 'lucide-react';
+import { Plus, ChevronRight, LayoutList, ShieldCheck } from 'lucide-react';
 import { apiClient } from '../api/client';
 import { formatZoneId, parseZoneId } from '../utils/zoneUtils';
 import type { RRSet, Zone as ZoneType, Zone } from '../types/api';
-import { Button, Card, Flash, Modal, Input, Select } from '../components';
+import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Flash, Modal, ModalHeader, ModalTitle, ModalContent, ModalFooter, Input, Select, Badge } from '../components';
 
 export const ZoneDetails: React.FC = () => {
     const { name } = useParams<{ name: string }>();
@@ -134,83 +134,110 @@ export const ZoneDetails: React.FC = () => {
     const recordTypes = ['A', 'AAAA', 'CNAME', 'TXT', 'MX', 'NS', 'PTR', 'SRV', 'NAPTR'];
 
     return (
-        <div className="p-6 max-w-5xl mx-auto">
+        <div className="space-y-6">
             {/* Breadcrumbs */}
-            <nav className="flex items-center gap-2 text-sm text-text-secondary mb-4">
+            <nav className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Link to="/zones" className="hover:text-primary transition-colors">Zones</Link>
-                <ChevronRight className="w-4 h-4" />
-                <span className="text-text-primary font-medium">{name}</span>
+                <ChevronRight className="size-4" />
+                <span className="text-foreground font-semibold">{name}</span>
             </nav>
 
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex justify-between items-end">
                 <div className="flex items-center gap-4">
-                    <h1 className="text-2xl font-semibold text-text-primary">{name}</h1>
-                    <Select
-                        value={selectedView}
-                        onChange={e => setSelectedView(e.target.value)}
-                    >
-                        {views.map(v => <option key={v} value={v}>{v}</option>)}
-                    </Select>
+                    <div className="bg-primary/10 text-primary p-3 rounded-2xl">
+                        <LayoutList className="size-6" />
+                    </div>
+                    <div>
+                        <h1 className="text-3xl font-bold tracking-tight">{name}</h1>
+                        <div className="flex items-center gap-2 mt-1">
+                            <Badge variant="outline" className="text-muted-foreground uppercase tracking-widest text-[10px]">
+                                Zone Records
+                            </Badge>
+                            <Select
+                                value={selectedView}
+                                onChange={e => setSelectedView(e.target.value)}
+                                className="h-7 text-xs py-0 min-w-[100px]"
+                            >
+                                {views.map(v => <option key={v} value={v}>{v}</option>)}
+                            </Select>
+                        </div>
+                    </div>
                 </div>
-                <Button variant="primary" leadingIcon={Plus} onClick={() => setIsRecordDialogOpen(true)}>
+                <Button variant="primary" leadingIcon={Plus} onClick={() => setIsRecordDialogOpen(true)} size="lg">
                     Add Record
                 </Button>
             </div>
 
-            {error && <Flash variant="danger" className="mb-4">{error}</Flash>}
+            {error && <Flash variant="danger">{error}</Flash>}
 
-            {loading && <div className="p-5 text-text-secondary">Loading...</div>}
-
-            {!loading && (
-                <Card padding="none">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left">
-                            <thead className="border-b border-border bg-bg-page/50">
-                                <tr>
-                                    <th className="px-4 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wide">Name</th>
-                                    <th className="px-4 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wide">Type</th>
-                                    <th className="px-4 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wide">TTL</th>
-                                    <th className="px-4 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wide">Content</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-border">
-                                {records.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={4} className="px-4 py-8 text-center text-text-muted">
-                                            No records found in view "{selectedView}".
-                                        </td>
+            <Card className="overflow-hidden">
+                <CardHeader className="border-b bg-muted/20">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                        <ShieldCheck className="size-5 text-primary" />
+                        Resource Records
+                    </CardTitle>
+                    <CardDescription>All DNS records defined for this zone in the "{selectedView}" view.</CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                    {loading ? (
+                        <div className="py-20 flex justify-center">
+                            <div className="animate-spin size-8 border-4 border-primary border-t-transparent rounded-full" />
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="bg-muted/30 border-b border-border">
+                                        <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Name</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Type</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider w-24">TTL</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Content</th>
                                     </tr>
-                                ) : records.map((rr, i) => (
-                                    <tr key={i} className="hover:bg-border/10 transition-colors">
-                                        <td className="px-4 py-3 text-sm text-text-primary">{rr.name}</td>
-                                        <td className="px-4 py-3 text-sm text-text-primary">{rr.type}</td>
-                                        <td className="px-4 py-3 text-sm text-text-secondary">{rr.ttl}</td>
-                                        <td className="px-4 py-3 text-sm text-text-primary">
-                                            {rr.records.map((r, j) => (
-                                                <div key={j}>{r.content}</div>
-                                            ))}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </Card>
-            )}
+                                </thead>
+                                <tbody className="divide-y divide-border/60">
+                                    {records.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={4} className="px-6 py-12 text-center text-muted-foreground italic">
+                                                No records found in view "{selectedView}".
+                                            </td>
+                                        </tr>
+                                    ) : records.map((rr, i) => (
+                                        <tr key={i} className="hover:bg-accent/40 transition-colors group">
+                                            <td className="px-6 py-4 text-sm font-medium">{rr.name}</td>
+                                            <td className="px-6 py-4">
+                                                <Badge variant="outline" className="bg-background group-hover:bg-primary/5 transition-colors">{rr.type}</Badge>
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-muted-foreground">{rr.ttl}</td>
+                                            <td className="px-6 py-4 text-sm font-mono text-muted-foreground break-all">
+                                                {rr.records.map((r, j) => (
+                                                    <div key={j} className="py-0.5">{r.content}</div>
+                                                ))}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
 
-            <Modal isOpen={isRecordDialogOpen} onClose={() => setIsRecordDialogOpen(false)} title={`Add Record to ${selectedView === 'default' ? 'Default View' : `View "${selectedView}"`}`} width="lg">
-                <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+            <Modal isOpen={isRecordDialogOpen} onClose={() => setIsRecordDialogOpen(false)}>
+                <ModalHeader>
+                    <ModalTitle>{`Add Record to ${selectedView === 'default' ? 'Default View' : `View "${selectedView}"`}`}</ModalTitle>
+                </ModalHeader>
+                <ModalContent className="space-y-6">
+                    <div className="grid grid-cols-2 gap-6">
                         <Input
-                            label="Name (@ for root)"
+                            label="Name"
                             value={newRecordName}
                             onChange={e => setNewRecordName(e.target.value)}
-                            placeholder="www"
+                            placeholder="@ or sub"
                             block
                             autoFocus
                         />
                         <Select
-                            label="Type"
+                            label="Record Type"
                             value={newRecordType}
                             onChange={e => setNewRecordType(e.target.value)}
                             block
@@ -218,7 +245,7 @@ export const ZoneDetails: React.FC = () => {
                         />
                     </div>
 
-                    <div className="grid grid-cols-4 gap-4">
+                    <div className="grid grid-cols-3 gap-6">
                         <Input
                             label="TTL"
                             type="number"
@@ -226,7 +253,7 @@ export const ZoneDetails: React.FC = () => {
                             onChange={e => setNewRecordTTL(Number(e.target.value))}
                             block
                         />
-                        <div className="col-span-3">
+                        <div className="col-span-2">
                             <Input
                                 label="Content"
                                 value={newRecordContent}
@@ -236,14 +263,13 @@ export const ZoneDetails: React.FC = () => {
                             />
                         </div>
                     </div>
-
-                    <div className="flex justify-end gap-2 pt-4">
-                        <Button onClick={() => setIsRecordDialogOpen(false)}>Cancel</Button>
-                        <Button variant="primary" disabled={creatingRecord || !newRecordContent} onClick={handleAddRecord} loading={creatingRecord}>
-                            {creatingRecord ? 'Saving...' : 'Save'}
-                        </Button>
-                    </div>
-                </div>
+                </ModalContent>
+                <ModalFooter>
+                    <Button onClick={() => setIsRecordDialogOpen(false)} variant="ghost">Cancel</Button>
+                    <Button variant="primary" disabled={creatingRecord || !newRecordContent} onClick={handleAddRecord} loading={creatingRecord}>
+                        Save Record
+                    </Button>
+                </ModalFooter>
             </Modal>
         </div>
     );

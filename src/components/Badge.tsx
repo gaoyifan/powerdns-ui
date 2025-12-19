@@ -1,37 +1,39 @@
 import React from 'react';
+import { cva, type VariantProps } from 'class-variance-authority';
+import { cn } from '../lib/utils';
 
-type BadgeVariant = 'default' | 'primary' | 'secondary' | 'success' | 'danger' | 'warning';
+const badgeVariants = cva(
+    'inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+    {
+        variants: {
+            variant: {
+                default: 'border-transparent bg-primary text-primary-foreground',
+                secondary: 'border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80',
+                outline: 'text-foreground',
+                destructive: 'border-transparent bg-destructive text-white',
+                success: 'border-transparent bg-success text-white',
+                warning: 'border-transparent bg-warning text-white',
+                info: 'border-transparent bg-info text-white',
+            },
+        },
+        defaultVariants: {
+            variant: 'default',
+        },
+    }
+);
 
-interface BadgeProps {
-    children: React.ReactNode;
-    variant?: BadgeVariant;
-    className?: string;
-}
-
-const variantStyles: Record<BadgeVariant, string> = {
-    default: 'bg-border/50 text-text-secondary',
-    primary: 'bg-primary/10 text-primary',
-    secondary: 'bg-text-secondary/10 text-text-secondary',
-    success: 'bg-success/10 text-success',
-    danger: 'bg-error/10 text-error',
-    warning: 'bg-warning/10 text-warning',
-};
+interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement>, VariantProps<typeof badgeVariants> { }
 
 export const Badge: React.FC<BadgeProps> = ({
     children,
-    variant = 'default',
-    className = '',
+    variant,
+    className,
+    ...props
 }) => {
     return (
         <span
-            className={`
-        inline-flex items-center
-        px-2 py-0.5
-        text-xs font-medium
-        rounded-full
-        ${variantStyles[variant]}
-        ${className}
-      `}
+            className={cn(badgeVariants({ variant }), className)}
+            {...props}
         >
             {children}
         </span>

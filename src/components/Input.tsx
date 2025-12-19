@@ -1,7 +1,8 @@
 import React from 'react';
 import type { LucideIcon } from 'lucide-react';
+import { cn } from '../lib/utils';
 
-interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'> {
+interface InputProps extends React.ComponentProps<'input'> {
     label?: string;
     block?: boolean;
     leadingIcon?: LucideIcon;
@@ -15,46 +16,50 @@ export const Input: React.FC<InputProps> = ({
     error,
     className = '',
     id,
+    type = 'text',
     ...props
 }) => {
     const inputId = id || label?.toLowerCase().replace(/\s+/g, '-');
 
     return (
-        <div className={`${block ? 'w-full' : ''}`}>
+        <div className={cn('flex flex-col gap-1.5', block ? 'w-full' : 'w-min')}>
             {label && (
                 <label
                     htmlFor={inputId}
-                    className="block text-sm font-medium text-text-secondary mb-1"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                 >
                     {label}
                 </label>
-            )}
+            )
+            }
             <div className="relative">
                 {LeadingIcon && (
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <LeadingIcon className="h-4 w-4 text-text-muted" />
+                        <LeadingIcon className="size-4 text-muted-foreground" />
                     </div>
                 )}
                 <input
                     id={inputId}
-                    className={`
-            block rounded-md border bg-bg-card
-            px-3 py-2 text-base text-text-primary
-            placeholder:text-text-muted
-            focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
-            disabled:bg-disabled/20 disabled:text-text-muted disabled:cursor-not-allowed
-            transition-all duration-[var(--transition-fast)]
-            ${LeadingIcon ? 'pl-10' : ''}
-            ${error ? 'border-error focus:ring-error/50' : 'border-border'}
-            ${block ? 'w-full' : ''}
-            ${className}
-          `}
+                    type={type}
+                    data-slot="input"
+                    className={cn(
+                        'flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-xs transition-all outline-none md:text-sm',
+                        'file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground',
+                        'dark:bg-input/30',
+                        'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
+                        'aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive',
+                        'disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50',
+                        LeadingIcon && 'pl-10',
+                        error && 'aria-invalid:border-destructive aria-invalid:ring-destructive/20',
+                        className
+                    )}
+                    aria-invalid={!!error}
                     {...props}
                 />
             </div>
             {error && (
-                <p className="mt-1 text-sm text-error">{error}</p>
+                <p className="text-sm font-medium text-destructive">{error}</p>
             )}
-        </div>
+        </div >
     );
 };

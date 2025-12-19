@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Key } from 'lucide-react';
+import { Key, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Button, Input, Flash } from '../components';
+import { Button, Input, Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components';
 
 export const Login: React.FC = () => {
     const [key, setKey] = useState('');
@@ -36,43 +36,51 @@ export const Login: React.FC = () => {
     };
 
     return (
-        <div className="flex justify-center items-center min-h-screen bg-bg-page">
-            <div className="p-6 bg-bg-card border border-border rounded-lg shadow-lg w-full max-w-sm">
-                <div className="mb-6 text-center">
-                    <h1 className="text-2xl font-bold text-text-primary mb-2">PowerDNS Admin</h1>
-                    <p className="text-text-secondary text-sm">Enter your API Key to continue</p>
-                </div>
+        <div className="flex justify-center items-center min-h-screen bg-muted/30">
+            <Card className="w-full max-w-md shadow-lg border-border/80 bg-background/80 backdrop-blur">
+                <CardHeader className="text-center space-y-2">
+                    <div className="mx-auto bg-primary/10 text-primary flex h-12 w-12 items-center justify-center rounded-xl text-2xl font-bold shadow-sm mb-2">
+                        P
+                    </div>
+                    <CardTitle className="text-2xl">PowerDNS Admin</CardTitle>
+                    <CardDescription>Enter your API Key to access the control plane</CardDescription>
+                </CardHeader>
 
-                {error && (
-                    <Flash variant="danger" className="mb-4">
-                        {error}
-                    </Flash>
-                )}
+                <CardContent>
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                        {error && (
+                            <div className="p-3 text-sm font-medium text-destructive bg-destructive/10 border border-destructive/20 rounded-md flex items-center gap-2">
+                                <ShieldCheck className="size-4" />
+                                {error}
+                            </div>
+                        )}
 
-                <form onSubmit={handleSubmit}>
-                    <Input
-                        label="API Key"
-                        type="password"
-                        value={key}
-                        onChange={(e) => setKey(e.target.value)}
-                        placeholder="Enter API Key..."
-                        leadingIcon={Key}
-                        block
-                    />
+                        <Input
+                            label="API Key"
+                            type="password"
+                            value={key}
+                            onChange={(e) => setKey(e.target.value)}
+                            placeholder="api-key-..."
+                            leadingIcon={Key}
+                            block
+                            required
+                            autoFocus
+                        />
 
-                    <div className="mt-4">
                         <Button
                             type="submit"
                             variant="primary"
                             block
                             disabled={loading || !key}
                             loading={loading}
+                            size="lg"
+                            className="text-base font-semibold"
                         >
-                            {loading ? 'Verifying...' : 'Login'}
+                            Sign In
                         </Button>
-                    </div>
-                </form>
-            </div>
+                    </form>
+                </CardContent>
+            </Card>
         </div>
     );
 };

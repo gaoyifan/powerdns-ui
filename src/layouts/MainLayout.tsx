@@ -1,42 +1,28 @@
 import React from 'react';
-import { Outlet, useLocation, Link } from 'react-router-dom';
-import { Server, Globe, List, LogOut, Network } from 'lucide-react';
+import { Outlet, useLocation, Link, useNavigate } from 'react-router-dom';
+import { Server, Globe, List, LogOut, Network, Bell } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { Button } from '../components/Button';
+import { cn } from '../lib/utils';
 
-interface NavItemProps {
+interface NavItem {
     to: string;
     icon: React.ElementType;
     label: string;
-    isActive: boolean;
+    match: (path: string) => boolean;
 }
 
-const NavItem: React.FC<NavItemProps> = ({ to, icon: Icon, label, isActive }) => (
-    <Link
-        to={to}
-        className={`
-      flex items-center gap-3 px-3 py-2 rounded-md text-sm
-      transition-all duration-[var(--transition-fast)]
-      ${isActive
-                ? 'bg-primary/10 text-primary font-semibold border-l-2 border-primary -ml-[2px]'
-                : 'text-text-secondary hover:text-text-primary hover:bg-border/10'
-            }
-    `}
-    >
-        <Icon className="w-5 h-5" />
-        <span>{label}</span>
-    </Link>
-);
-
 export const MainLayout: React.FC = () => {
-    const { logout } = useAuth();
+    const { logout, user } = useAuth();
     const location = useLocation();
+    const navigate = useNavigate();
 
     const handleLogout = () => {
         logout();
-        window.location.href = '/login';
+        navigate('/login');
     };
 
-    const navItems = [
+    const navItems: NavItem[] = [
         { to: '/', icon: Server, label: 'Dashboard', match: (path: string) => path === '/' },
         { to: '/zones', icon: Globe, label: 'Zones', match: (path: string) => path.startsWith('/zones') },
         { to: '/views', icon: List, label: 'Views', match: (path: string) => path.startsWith('/views') },
@@ -44,38 +30,86 @@ export const MainLayout: React.FC = () => {
     ];
 
     return (
-        <div className="min-h-screen bg-bg-page flex flex-col">
-            {/* Top Header Bar */}
-            <header className="bg-bg-card border-b border-border px-6 py-3 flex items-center justify-between">
-                <Link to="/" className="text-lg font-bold text-primary hover:text-primary-hover transition-colors">
-                    PowerDNS V5
-                </Link>
-                <button
-                    onClick={handleLogout}
-                    className="flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
-                >
-                    <LogOut className="w-4 h-4" />
-                    Logout
-                </button>
+        <div className="bg-muted/30 text-foreground min-h-screen">
+            {/* Header */}
+            <header className="border-border/80 bg-background/80 sticky top-0 z-40 border-b backdrop-blur">
+                <div className="flex items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+                    <Link to="/" className="flex items-center gap-4">
+                        <div className="bg-primary/10 text-primary flex h-10 w-10 items-center justify-center rounded-lg text-lg font-semibold shadow-sm">
+                            P
+                        </div>
+                        <div className="flex flex-col leading-tight">
+                            <span className="text-sm font-semibold tracking-tight">PowerDNS UI</span>
+                            <span className="text-muted-foreground text-xs">v5 Management</span>
+                        </div>
+                    </Link>
+
+                    <div className="flex flex-1 items-center justify-end gap-2">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="border-border/80 rounded-full border"
+                            aria-label="Notifications"
+                        >
+                            <Bell className="h-4 w-4" />
+                        </Button>
+                        <div className="flex items-center gap-4 border-l border-border/80 pl-4 ml-2">
+                            <div className="bg-primary/10 text-primary flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold uppercase">
+                                {user?.username?.slice(0, 2) || 'AD'}
+                            </div>
+                            <span className="hidden text-sm leading-tight font-medium sm:inline">
+                                {user?.username || 'Admin'}
+                            </span>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={handleLogout}
+                                className="text-destructive hover:text-destructive/80"
+                            >
+                                <LogOut className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    </div>
+                </div>
             </header>
 
-            <div className="flex flex-1">
-                {/* Left Sidebar */}
-                <nav className="w-56 bg-bg-card border-r border-border p-4 flex flex-col gap-1">
-                    {navItems.map(item => (
-                        <NavItem
-                            key={item.to}
-                            to={item.to}
-                            icon={item.icon}
-                            label={item.label}
-                            isActive={item.match(location.pathname)}
-                        />
-                    ))}
-                </nav>
+            <div className="flex flex-col lg:grid lg:grid-cols-[260px_minmax(0,1fr)]">
+                {/* Sidebar */}
+                <aside className="border-border/80 bg-background/80 hidden px-4 py-6 backdrop-blur lg:flex lg:min-h-screen">
+                    <nav className="sticky top-24 flex w-full flex-col gap-1">
+                        {navItems.map((item) => {
+                            const isActive = item.match(location.pathname);
+                            return (
+                                <Link
+                                    key={item.to}
+                                    to={item.to}
+                                    className={cn(
+                                        'group relative flex items-center gap-4 rounded-xl px-3 py-2 text-sm transition-colors',
+                                        isActive
+                                            ? 'bg-primary/10 text-primary font-semibold shadow-sm'
+                                            : 'text-muted-foreground hover:bg-primary/10 hover:text-foreground font-medium'
+                                    )}
+                                >
+                                    <span
+                                        aria-hidden="true"
+                                        className={cn(
+                                            'h-6 w-1 rounded-full bg-transparent transition-colors',
+                                            isActive ? 'bg-primary' : 'group-hover:bg-primary/60'
+                                        )}
+                                    />
+                                    <item.icon className="h-4 w-4" />
+                                    <span className="truncate">{item.label}</span>
+                                </Link>
+                            );
+                        })}
+                    </nav>
+                </aside>
 
                 {/* Main Content */}
-                <main className="flex-1 overflow-auto">
-                    <Outlet />
+                <main className="min-h-screen px-4 py-6 sm:px-6">
+                    <div className="mx-auto max-w-7xl">
+                        <Outlet />
+                    </div>
                 </main>
             </div>
         </div>

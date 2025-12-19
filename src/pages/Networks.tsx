@@ -3,7 +3,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { apiClient } from '../api/client';
 import type { Network, Zone } from '../types/api';
 import { parseZoneId } from '../utils/zoneUtils';
-import { Button, Card, Flash, Modal, Input, Select } from '../components';
+import { Button, Card, Flash, Modal, ModalHeader, ModalTitle, ModalContent, ModalFooter, Input, Select } from '../components';
 
 export const Networks: React.FC = () => {
     const [networks, setNetworks] = useState<Network[]>([]);
@@ -101,7 +101,7 @@ export const Networks: React.FC = () => {
                                 <p className="text-xs text-text-secondary">View: {net.view || 'default'}</p>
                             </div>
                             <Button
-                                variant="danger"
+                                variant="destructive"
                                 size="sm"
                                 leadingIcon={Trash2}
                                 onClick={() => handleDeleteNetwork(net.network)}
@@ -112,8 +112,11 @@ export const Networks: React.FC = () => {
                 </div>
             )}
 
-            <Modal isOpen={isDialogOpen} onClose={() => setIsDialogOpen(false)} title="Map Network">
-                <div className="space-y-4">
+            <Modal isOpen={isDialogOpen} onClose={() => setIsDialogOpen(false)}>
+                <ModalHeader>
+                    <ModalTitle>Map Network</ModalTitle>
+                </ModalHeader>
+                <ModalContent className="space-y-4">
                     <Input
                         label="Subnet (CIDR)"
                         value={newSubnet}
@@ -132,14 +135,13 @@ export const Networks: React.FC = () => {
                         <option value="" disabled>Select a View...</option>
                         {views.map(v => <option key={v} value={v}>{v}</option>)}
                     </Select>
-
-                    <div className="flex justify-end gap-2 pt-4">
-                        <Button onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                        <Button variant="primary" disabled={creating || !newSubnet || !selectedView} onClick={handleAddNetwork} loading={creating}>
-                            {creating ? 'Saving...' : 'Save'}
-                        </Button>
-                    </div>
-                </div>
+                </ModalContent>
+                <ModalFooter>
+                    <Button onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+                    <Button variant="primary" disabled={creating || !newSubnet || !selectedView} onClick={handleAddNetwork} loading={creating}>
+                        {creating ? 'Saving...' : 'Save'}
+                    </Button>
+                </ModalFooter>
             </Modal>
         </div>
     );

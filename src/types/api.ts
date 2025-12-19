@@ -54,3 +54,18 @@ export interface ServerConfig {
   config_url: string;
   zones_url: string;
 }
+export interface Server {
+  id: string;
+  type: string;
+  version: string;
+  daemon_type: string;
+  url: string;
+  zones_url: string;
+  config_url: string;
+}
+
+export interface StatisticItem {
+  name: string;
+  type: 'StatisticItem';
+  value: string;
+}

@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Layers, ShieldCheck } from 'lucide-react';
 import { apiClient } from '../api/client';
 import type { Zone } from '../types/api';
 import { parseZoneId } from '../utils/zoneUtils';
-import { Button, Card, Flash, Modal, Input } from '../components';
+import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Flash, Modal, ModalHeader, ModalTitle, ModalContent, ModalFooter, Input } from '../components';
 
 export const Views: React.FC = () => {
     const [views, setViews] = useState<string[]>([]);
@@ -87,42 +87,70 @@ export const Views: React.FC = () => {
     }
 
     return (
-        <div className="p-6 max-w-5xl mx-auto">
-            <div className="flex justify-between items-center mb-6">
+        <div className="space-y-6">
+            <div className="flex justify-between items-end">
                 <div>
-                    <h1 className="text-2xl font-semibold text-text-primary">Views</h1>
-                    <p className="text-text-secondary text-sm">Manage DNS Views (Implicit via Zones)</p>
+                    <h1 className="text-3xl font-bold tracking-tight">Views</h1>
+                    <p className="text-muted-foreground">Manage DNS partitioning and policy-based responses.</p>
                 </div>
-                <Button variant="primary" leadingIcon={Plus} onClick={() => setIsDialogOpen(true)}>
+                <Button variant="primary" leadingIcon={Plus} onClick={() => setIsDialogOpen(true)} size="lg">
                     Create View
                 </Button>
             </div>
 
-            {error && <Flash variant="danger" className="mb-4">{error}</Flash>}
+            {error && <Flash variant="danger">{error}</Flash>}
 
-            {loading ? (
-                <p className="text-text-secondary">Loading views...</p>
-            ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {views.map(view => (
-                        <Card key={view} className="flex justify-between items-center">
-                            <span className="font-semibold text-text-primary">{view}</span>
-                            {view !== 'default' && (
-                                <Button
-                                    variant="danger"
-                                    size="sm"
-                                    leadingIcon={Trash2}
-                                    onClick={() => handleDeleteView(view)}
-                                    aria-label={`Delete ${view}`}
-                                />
-                            )}
-                        </Card>
-                    ))}
-                </div>
-            )}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-xl flex items-center gap-2">
+                        <Layers className="size-5 text-primary" />
+                        Available Views
+                    </CardTitle>
+                    <CardDescription>Views are implicitly created and managed via zone tags.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {loading ? (
+                        <div className="py-12 flex justify-center">
+                            <div className="animate-spin size-8 border-4 border-primary border-t-transparent rounded-full" />
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {views.map(view => (
+                                <div
+                                    key={view}
+                                    className="group relative overflow-hidden rounded-2xl border border-border/80 bg-background/50 p-6 shadow-sm hover:border-primary/30 hover:bg-accent/40 transition-all"
+                                >
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="bg-primary/10 text-primary p-2 rounded-xl group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                                            <Layers className="size-5" />
+                                        </div>
+                                        {view !== 'default' && (
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="text-muted-foreground hover:text-destructive transition-colors h-8 w-8"
+                                                onClick={() => handleDeleteView(view)}
+                                            >
+                                                <Trash2 className="size-4" />
+                                            </Button>
+                                        )}
+                                    </div>
+                                    <h3 className="text-lg font-bold tracking-tight">{view}</h3>
+                                    <p className="text-xs text-muted-foreground mt-1 uppercase tracking-wider font-semibold">
+                                        {view === 'default' ? 'Standard Partition' : 'Custom Partition'}
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
 
-            <Modal isOpen={isDialogOpen} onClose={() => setIsDialogOpen(false)} title="Create New View">
-                <div className="space-y-4">
+            <Modal isOpen={isDialogOpen} onClose={() => setIsDialogOpen(false)}>
+                <ModalHeader>
+                    <ModalTitle>Create New View</ModalTitle>
+                </ModalHeader>
+                <ModalContent className="space-y-6">
                     <Input
                         label="View Name"
                         value={newViewName}
@@ -131,13 +159,19 @@ export const Views: React.FC = () => {
                         block
                         autoFocus
                     />
-                    <div className="flex justify-end gap-2 pt-4">
-                        <Button onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                        <Button variant="primary" disabled={creating || !newViewName} onClick={handleCreateView} loading={creating}>
-                            {creating ? 'Creating...' : 'Create'}
-                        </Button>
+                    <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 flex gap-3">
+                        <ShieldCheck className="size-5 text-primary shrink-0 mt-0.5" />
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                            Creating a view will create a hidden marker zone. This allows you to tag zones and map networks to this partition.
+                        </p>
                     </div>
-                </div>
+                </ModalContent>
+                <ModalFooter>
+                    <Button onClick={() => setIsDialogOpen(false)} variant="ghost">Cancel</Button>
+                    <Button variant="primary" disabled={creating || !newViewName} onClick={handleCreateView} loading={creating}>
+                        Create View
+                    </Button>
+                </ModalFooter>
             </Modal>
         </div>
     );
