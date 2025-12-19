@@ -197,10 +197,18 @@ describe('Views Page', () => {
         const viewHeader = await screen.findByText('internal');
         await user.click(viewHeader);
 
-        const textArea = await screen.findByRole('textbox');
+        const textAreas = await screen.findAllByRole('textbox'); // Should find local input + textarea? 
+        // Actually in 'internal' view, if we didn't add the URL input there? We did for ALL views.
+        // So 'internal' view card WILL have URL input too.
+
+        const textArea = textAreas.find(el => el.tagName === 'TEXTAREA');
+        expect(textArea).toBeDefined();
+
+        // Wait for value to populate (if async) but it's passed from prop initially.
         await waitFor(() => expect(textArea).toHaveValue('192.168.1.0/24\n10.0.0.0/8'));
 
         // Remove first network
+        if (!textArea) throw new Error("No textarea found");
         await user.clear(textArea);
         await user.type(textArea, '10.0.0.0/8');
 
@@ -227,6 +235,106 @@ describe('Views Page', () => {
                 })
             );
         });
+    });
+
+    // ==================== URL FETCH TESTS ====================
+
+    it('updates text area when fetching from URL', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            text: () => Promise.resolve('1.1.1.0/24\n# Comment\n2.2.2.0/24')
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        const user = userEvent.setup();
+        const zones = [{ name: '_marker.url_view.', kind: 'Native' }];
+        (apiClient.request as any).mockImplementation((url: string) => {
+            if (url === '/servers/localhost/zones') return Promise.resolve(zones);
+            if (url === '/servers/localhost/networks') return Promise.resolve([]);
+            return Promise.resolve([]);
+        });
+
+        renderComponent();
+
+        await user.click(await screen.findByText('url_view'));
+
+        const urlInput = screen.getByPlaceholderText('https://example.com/networks.txt');
+        await user.type(urlInput, 'https://test.com/list.txt');
+
+        const fetchBtn = screen.getByRole('button', { name: 'Fetch' });
+        await user.click(fetchBtn);
+
+
+        // Since there are multiple textboxes (URL input + textarea), use specific selector
+        const textAreas = screen.getAllByRole('textbox');
+        const textArea = textAreas.find(el => el.tagName === 'TEXTAREA');
+        expect(textArea).toBeDefined();
+
+        await waitFor(() => {
+            expect(textArea).toHaveValue('1.1.1.0/24\n2.2.2.0/24');
+        });
+
+        // Verify localStorage persistence
+        expect(localStorage.getItem('view_urls')).toContain('"url_view":"https://test.com/list.txt"');
+    });
+
+    it('Update All fetches urls and applies changes', async () => {
+        // Setup scenarios: 
+        // View 'alpha' has URL and needs update.
+        // View 'beta' has NO URL.
+        const zones = [
+            { name: '_marker.alpha.', kind: 'Native' },
+            { name: '_marker.beta.', kind: 'Native' }
+        ];
+
+        // Setup initial storage
+        localStorage.setItem('view_urls', JSON.stringify({ alpha: 'https://alpha.com/list' }));
+
+        // Mock fetch for alpha
+        const fetchMock = vi.fn().mockImplementation((url) => {
+            if (url === 'https://alpha.com/list') {
+                return Promise.resolve({
+                    ok: true,
+                    text: () => Promise.resolve('10.0.0.0/8')
+                });
+            }
+            return Promise.reject('Unknown URL');
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        // Confirm dialog mock
+        window.confirm = vi.fn().mockReturnValue(true);
+        window.alert = vi.fn();
+
+        (apiClient.request as any).mockImplementation((url: string, opts: any) => {
+            // Mock PUT for alpha update (adding 10.0.0.0/8)
+            // Initial networks are empty for simplicity
+            if (opts?.method === 'PUT') return Promise.resolve({});
+            if (url === '/servers/localhost/zones') return Promise.resolve(zones);
+            return Promise.resolve([]);
+        });
+
+        // Spy on API request
+        const requestSpy = (apiClient.request as any);
+
+        renderComponent();
+
+        const updateAllBtn = screen.getByTestId('update-all-btn');
+        await userEvent.click(updateAllBtn);
+
+        await waitFor(() => {
+            // Should call PUT for alpha's new network
+            expect(requestSpy).toHaveBeenCalledWith(
+                expect.stringContaining('/servers/localhost/networks/10.0.0.0'),
+                expect.objectContaining({
+                    method: 'PUT',
+                    body: JSON.stringify({ view: 'alpha' })
+                })
+            );
+        });
+
+        // Should NOT call fetch for beta
+        expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
 });

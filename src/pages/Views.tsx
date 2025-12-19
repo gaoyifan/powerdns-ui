@@ -10,8 +10,6 @@ interface ViewWithNetworks {
     networks: string[];
 }
 
-
-
 export const Views: React.FC = () => {
     const [views, setViews] = useState<ViewWithNetworks[]>([]);
     const [loading, setLoading] = useState(true);
@@ -30,6 +28,27 @@ export const Views: React.FC = () => {
     // Delete State
     const [viewToDelete, setViewToDelete] = useState<string | null>(null);
     const [deleting, setDeleting] = useState(false);
+
+    // URL State
+    const [viewUrls, setViewUrls] = useState<Record<string, string>>({});
+    const [updatingAll, setUpdatingAll] = useState(false);
+
+    useEffect(() => {
+        const saved = localStorage.getItem('view_urls');
+        if (saved) {
+            try {
+                setViewUrls(JSON.parse(saved));
+            } catch (e) {
+                console.error('Failed to parse saved view URLs', e);
+            }
+        }
+    }, []);
+
+    const updateViewUrl = (viewName: string, url: string) => {
+        const newUrls = { ...viewUrls, [viewName]: url };
+        setViewUrls(newUrls);
+        localStorage.setItem('view_urls', JSON.stringify(newUrls));
+    };
 
     const fetchData = async () => {
         setLoading(true);
@@ -84,74 +103,74 @@ export const Views: React.FC = () => {
         }
     };
 
+    const applyNetworkChanges = async (viewName: string, currentNetworks: string[], newNetworks: string[]) => {
+        // Determine additions and removals
+        const toAdd = newNetworks.filter(n => !currentNetworks.includes(n));
+        const toRemove = currentNetworks.filter(n => !newNetworks.includes(n));
+
+        // Execute changes
+        // Removals
+        for (const net of toRemove) {
+            // Unmap: set view to empty string
+            // Try unencoded first, then encoded if 404
+            try {
+                await apiClient.request(`/servers/localhost/networks/${net}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ view: '' })
+                });
+            } catch (e: any) {
+                if (e.status === 404) {
+                    const encoded = net.replace(/\//g, '%2F');
+                    try {
+                        await apiClient.request(`/servers/localhost/networks/${encoded}`, {
+                            method: 'PUT',
+                            body: JSON.stringify({ view: '' })
+                        });
+                    } catch (e2) {
+                        console.error(`Failed to unmap network ${net} (encoded)`, e2);
+                    }
+                } else {
+                    console.error(`Failed to unmap network ${net}`, e);
+                }
+            }
+        }
+
+        // Additions
+        for (const net of toAdd) {
+            try {
+                // Try 1: Unencoded (let browser handle slash)
+                await apiClient.request(`/servers/localhost/networks/${net}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ view: viewName })
+                });
+            } catch (e: any) {
+                if (e.status === 404) {
+                    // Try 2: Encoded slash
+                    const encoded = net.replace(/\//g, '%2F');
+                    try {
+                        await apiClient.request(`/servers/localhost/networks/${encoded}`, {
+                            method: 'PUT',
+                            body: JSON.stringify({ view: viewName })
+                        });
+                    } catch (e2) {
+                        console.error(`Failed to add network ${net} (encoded)`, e2);
+                        throw new Error(`Failed to add ${net}: ${(e2 as Error).message}`);
+                    }
+                } else {
+                    console.error(`Failed to add network ${net}`, e);
+                    throw new Error(`Failed to add ${net}: ${(e as Error).message}`);
+                }
+            }
+        }
+    };
+
     const handleSaveNetworks = async (viewName: string) => {
         setSaving(true);
         try {
             const currentNetworks = views.find(v => v.name === viewName)?.networks || [];
             const newNetworks = editNetworksContent.split('\n').map(s => s.trim()).filter(Boolean);
 
-            // Determine additions and removals
-            const toAdd = newNetworks.filter(n => !currentNetworks.includes(n));
-            const toRemove = currentNetworks.filter(n => !newNetworks.includes(n));
-
-            // Execute changes
-            // Removals
-            for (const net of toRemove) {
-                // Unmap: set view to empty string
-                // Try unencoded first, then encoded if 404
-                try {
-                    await apiClient.request(`/servers/localhost/networks/${net}`, {
-                        method: 'PUT',
-                        body: JSON.stringify({ view: '' })
-                    });
-                } catch (e: any) {
-                    if (e.status === 404) {
-                        const encoded = net.replace(/\//g, '%2F');
-                        try {
-                            await apiClient.request(`/servers/localhost/networks/${encoded}`, {
-                                method: 'PUT',
-                                body: JSON.stringify({ view: '' })
-                            });
-                        } catch (e2) {
-                            console.error(`Failed to unmap network ${net} (encoded)`, e2);
-                        }
-                    } else {
-                        console.error(`Failed to unmap network ${net}`, e);
-                    }
-                }
-            }
-
-            // Additions
-            for (const net of toAdd) {
-                // v5 API: PUT /servers/localhost/networks/{ip}/{prefix} body: {view: ...}
-                // OR simple PUT /servers/localhost/networks/{cidr-encoded}
-                // Verification script used: PUT /networks/{encoded} { view: name }
-                // Try unencoded first, then encoded
-                try {
-                    // Try 1: Unencoded (let browser handle slash)
-                    await apiClient.request(`/servers/localhost/networks/${net}`, {
-                        method: 'PUT',
-                        body: JSON.stringify({ view: viewName })
-                    });
-                } catch (e: any) {
-                    if (e.status === 404) {
-                        // Try 2: Encoded slash
-                        const encoded = net.replace(/\//g, '%2F');
-                        try {
-                            await apiClient.request(`/servers/localhost/networks/${encoded}`, {
-                                method: 'PUT',
-                                body: JSON.stringify({ view: viewName })
-                            });
-                        } catch (e2) {
-                            console.error(`Failed to add network ${net} (encoded)`, e2);
-                            alert(`Failed to add ${net}: ${(e2 as Error).message}`);
-                        }
-                    } else {
-                        console.error(`Failed to add network ${net}`, e);
-                        alert(`Failed to add ${net}: ${(e as Error).message}`);
-                    }
-                }
-            }
+            await applyNetworkChanges(viewName, currentNetworks, newNetworks);
 
             await fetchData();
             setExpandedView(null);
@@ -160,6 +179,77 @@ export const Views: React.FC = () => {
             alert('Failed to save networks: ' + (err instanceof Error ? err.message : 'Unknown error'));
         } finally {
             setSaving(false);
+        }
+    };
+
+    const fetchUrlContent = async (url: string): Promise<string[]> => {
+        try {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const text = await res.text();
+            // simple parsing: split by newlines, trim, ignore comments (#) and empty lines
+            const lines = text.split('\n')
+                .map(l => l.trim())
+                .filter(l => l && !l.startsWith('#'))
+                .filter(l => {
+                    // Basic CIDR validation (very loose) or just checking if it looks like an IP
+                    return l.includes('.') || l.includes(':');
+                });
+            return lines;
+        } catch (e) {
+            throw new Error(`Failed to fetch URL ${url}: ${e instanceof Error ? e.message : String(e)}`);
+        }
+    };
+
+    const handleFetchFromUrl = async (viewName: string) => {
+        const url = viewUrls[viewName];
+        if (!url) return;
+
+        try {
+            const networks = await fetchUrlContent(url);
+            setEditNetworksContent(networks.join('\n'));
+        } catch (e) {
+            alert((e as Error).message);
+        }
+    };
+
+    const handleUpdateAll = async () => {
+        if (!confirm('This will fetch network lists from saved URLs for all views and overwrite their current mappings. Continue?')) {
+            return;
+        }
+        setUpdatingAll(true);
+        try {
+            let successCount = 0;
+            let failCount = 0;
+
+            for (const view of views) {
+                const url = viewUrls[view.name];
+                if (!url) continue;
+
+                try {
+                    const newNetworks = await fetchUrlContent(url);
+                    const currentNetworks = view.networks;
+
+                    // Optimization: check if identical?
+                    const sortedCurrent = [...currentNetworks].sort().join(',');
+                    const sortedNew = [...newNetworks].sort().join(',');
+                    if (sortedCurrent !== sortedNew) {
+                        await applyNetworkChanges(view.name, currentNetworks, newNetworks);
+                    }
+                    successCount++;
+                } catch (e) {
+                    console.error(`Failed to update view ${view.name}`, e);
+                    failCount++;
+                }
+            }
+
+            await fetchData();
+            alert(`Update All Complete.\nSuccess: ${successCount}\nFailed: ${failCount}`);
+
+        } catch (e) {
+            alert('Update All Failed: ' + (e as Error).message);
+        } finally {
+            setUpdatingAll(false);
         }
     };
 
@@ -181,7 +271,7 @@ export const Views: React.FC = () => {
             setNewViewName('');
             fetchData();
         } catch (err: unknown) {
-            alert('Failed to create view: ' + (err instanceof Error ? err.message : 'Unknown error'));
+            alert('Failed to creating view: ' + (err instanceof Error ? err.message : 'Unknown error'));
         } finally {
             setCreating(false);
         }
@@ -205,8 +295,6 @@ export const Views: React.FC = () => {
             const loopView = viewToDelete; // Capture for loop
 
             // 2. Delete associated zones
-            // Look for zones ending with ..viewName
-            // Also need to handle potential canonical names if API returns them differently, but usually endsWith is safe for ..view
             const zonesToDelete = zones.filter(z => z.name.endsWith(`..${loopView}`) || z.name.endsWith(`..${loopView}.`));
 
             for (const zone of zonesToDelete) {
@@ -218,29 +306,20 @@ export const Views: React.FC = () => {
             }
 
             // 3. Unmap associated networks
-            // We can get networks from the view state or fetch fresh
             const viewObj = views.find(v => v.name === loopView);
             if (viewObj) {
                 for (const net of viewObj.networks) {
                     try {
-                        // Unmap by setting view to empty string
-                        // Try unencoded first, then encoded if 404 (logic similar to creation)
-                        try {
-                            await apiClient.request(`/servers/localhost/networks/${net}`, {
+                        await apiClient.request(`/servers/localhost/networks/${net.replace(/\//g, '%2F')}`, {
+                            method: 'PUT',
+                            body: JSON.stringify({ view: '' })
+                        }).catch(async () => {
+                            const encoded = net.replace(/\//g, '%2F');
+                            await apiClient.request(`/servers/localhost/networks/${encoded}`, {
                                 method: 'PUT',
                                 body: JSON.stringify({ view: '' })
                             });
-                        } catch (e: any) {
-                            if (e.status === 404) {
-                                const encoded = net.replace(/\//g, '%2F');
-                                await apiClient.request(`/servers/localhost/networks/${encoded}`, {
-                                    method: 'PUT',
-                                    body: JSON.stringify({ view: '' })
-                                });
-                            } else {
-                                throw e;
-                            }
-                        }
+                        });
                     } catch (e) {
                         console.error(`Failed to unmap network ${net}`, e);
                     }
@@ -252,6 +331,13 @@ export const Views: React.FC = () => {
             await apiClient.request(`/servers/localhost/zones/${markerName}`, {
                 method: 'DELETE'
             });
+
+            // Also remove URL from local storage?
+            const newUrls = { ...viewUrls };
+            delete newUrls[loopView];
+            setViewUrls(newUrls);
+            localStorage.setItem('view_urls', JSON.stringify(newUrls));
+
             await fetchData();
             setViewToDelete(null);
         } catch (err: unknown) {
@@ -269,9 +355,20 @@ export const Views: React.FC = () => {
                     <h1 className="text-3xl font-bold tracking-tight">Views</h1>
                     <p className="text-muted-foreground">Manage DNS views and their associated networks.</p>
                 </div>
-                <Button variant="primary" leadingIcon={Plus} onClick={() => setIsCreateDialogOpen(true)} size="lg" data-testid="create-view-btn">
-                    Create View
-                </Button>
+                <div className="flex gap-2">
+                    <Button
+                        variant="secondary"
+                        onClick={handleUpdateAll}
+                        loading={updatingAll}
+                        data-testid="update-all-btn"
+                        disabled={loading}
+                    >
+                        Update All (URLs)
+                    </Button>
+                    <Button variant="primary" leadingIcon={Plus} onClick={() => setIsCreateDialogOpen(true)} size="lg" data-testid="create-view-btn">
+                        Create View
+                    </Button>
+                </div>
             </div>
 
             {error && <Flash variant="danger">{error}</Flash>}
@@ -316,20 +413,44 @@ export const Views: React.FC = () => {
 
                         {expandedView === view.name && (
                             <div className="px-6 pb-6 pt-0 border-t border-border/50 animate-in slide-in-from-top-2 duration-200">
-                                <div className="mt-4">
-                                    <label className="block text-sm font-medium mb-2">
-                                        Mapped Networks (CIDR)
-                                    </label>
-                                    <textarea
-                                        className="w-full min-h-[150px] p-3 rounded-lg border border-input bg-background font-mono text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                        value={editNetworksContent}
-                                        onChange={e => setEditNetworksContent(e.target.value)}
-                                        placeholder="10.0.0.0/24&#10;192.168.1.0/24"
-                                    />
-                                    <p className="text-xs text-muted-foreground mt-2">
-                                        Enter one network per line. These networks will be mapped to the <strong>{view.name}</strong> view.
-                                    </p>
-                                    <div className="mt-4 flex justify-end gap-2">
+                                <div className="mt-4 space-y-4">
+                                    {/* URL Fetcher */}
+                                    <div className="flex items-end gap-2 bg-muted/30 p-3 rounded-lg border border-border/50">
+                                        <div className="flex-1">
+                                            <Input
+                                                label="Source URL (Auto-updates with 'Update All')"
+                                                placeholder="https://example.com/networks.txt"
+                                                value={viewUrls[view.name] || ''}
+                                                onChange={e => updateViewUrl(view.name, e.target.value)}
+                                                className="bg-background"
+                                                block
+                                            />
+                                        </div>
+                                        <Button
+                                            variant="secondary"
+                                            onClick={() => handleFetchFromUrl(view.name)}
+                                            disabled={!viewUrls[view.name]}
+                                        >
+                                            Fetch
+                                        </Button>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium mb-2">
+                                            Mapped Networks (CIDR)
+                                        </label>
+                                        <textarea
+                                            className="w-full min-h-[150px] p-3 rounded-lg border border-input bg-background font-mono text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                            value={editNetworksContent}
+                                            onChange={e => setEditNetworksContent(e.target.value)}
+                                            placeholder="10.0.0.0/24&#10;192.168.1.0/24"
+                                        />
+                                        <p className="text-xs text-muted-foreground mt-2">
+                                            Enter one network per line. These networks will be mapped to the <strong>{view.name}</strong> view.
+                                        </p>
+                                    </div>
+
+                                    <div className="flex justify-end gap-2 pt-2 border-t border-border/50">
                                         <Button variant="ghost" onClick={() => setExpandedView(null)}>
                                             Cancel
                                         </Button>
