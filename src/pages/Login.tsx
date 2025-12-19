@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Key, ShieldCheck } from 'lucide-react';
+import { Key } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Button, Input, Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components';
+import { Button, Input, Card, CardHeader, CardTitle, CardDescription, CardContent, Flash } from '../components';
 
 export const Login: React.FC = () => {
     const [key, setKey] = useState('');
@@ -49,10 +49,7 @@ export const Login: React.FC = () => {
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-6">
                         {error && (
-                            <div className="p-3 text-sm font-medium text-destructive bg-destructive/10 border border-destructive/20 rounded-md flex items-center gap-2">
-                                <ShieldCheck className="size-4" />
-                                {error}
-                            </div>
+                            <Flash variant="danger">{error}</Flash>
                         )}
 
                         <Input

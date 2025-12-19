@@ -4,7 +4,8 @@ import { Link } from 'react-router-dom';
 import { apiClient } from '../api/client';
 import type { Zone, Server as ServerType, StatisticItem } from '../types/api';
 import { parseZoneId } from '../utils/zoneUtils';
-import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Flash, Modal, ModalHeader, ModalTitle, ModalContent, ModalFooter, Input, Select, Badge } from '../components';
+import { formatUptime } from '../utils/formatUtils';
+import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Flash, Modal, ModalHeader, ModalTitle, ModalContent, ModalFooter, Input, Select, Badge, StatsCard, Loading, EmptyState } from '../components';
 
 interface UnifiedZone {
     name: string;
@@ -12,30 +13,7 @@ interface UnifiedZone {
     ids: string[];
 }
 
-const StatsCard: React.FC<{
-    title: string;
-    value: string | number;
-    description: string;
-    icon: React.ElementType;
-    loading?: boolean;
-}> = ({ title, value, description, icon: Icon, loading }) => (
-    <Card>
-        <CardContent className="p-6">
-            <div className="flex items-center justify-between space-y-0 pb-2">
-                <p className="text-sm font-medium text-muted-foreground">{title}</p>
-                <div className="bg-primary/10 p-2 rounded-full text-primary">
-                    <Icon className="h-4 w-4" />
-                </div>
-            </div>
-            {loading ? (
-                <div className="h-8 w-24 bg-muted animate-pulse rounded mt-2" />
-            ) : (
-                <div className="text-2xl font-bold">{value}</div>
-            )}
-            <p className="text-xs text-muted-foreground mt-1">{description}</p>
-        </CardContent>
-    </Card>
-);
+
 
 export const Domains: React.FC = () => {
     const [unifiedZones, setUnifiedZones] = useState<UnifiedZone[]>([]);
@@ -163,8 +141,8 @@ export const Domains: React.FC = () => {
                 />
                 <StatsCard
                     title="Uptime"
-                    value={stats.find(s => s.name === 'uptime')?.value || 'N/A'}
-                    description="Process uptime (seconds)"
+                    value={formatUptime(stats.find(s => s.name === 'uptime')?.value || '0')}
+                    description="Process uptime"
                     icon={Server}
                     loading={loading}
                 />
@@ -182,13 +160,9 @@ export const Domains: React.FC = () => {
                 </CardHeader>
                 <CardContent>
                     {loading ? (
-                        <div className="py-12 flex justify-center">
-                            <div className="animate-spin size-8 border-4 border-primary border-t-transparent rounded-full" />
-                        </div>
+                        <Loading />
                     ) : unifiedZones.length === 0 ? (
-                        <div className="py-12 text-center border-2 border-dashed border-border rounded-xl">
-                            <p className="text-muted-foreground italic">No zones found. Create your first zone to get started.</p>
-                        </div>
+                        <EmptyState message="No zones found. Create your first zone to get started." />
                     ) : (
                         <div className="grid gap-4">
                             {unifiedZones.map((zone) => (

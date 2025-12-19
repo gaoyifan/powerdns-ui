@@ -13,9 +13,9 @@ interface FlashProps {
 
 const variantStyles: Record<FlashVariant, { bg: string; border: string; text: string; icon: typeof AlertCircle }> = {
     danger: {
-        bg: 'bg-error/10',
-        border: 'border-error/30',
-        text: 'text-error',
+        bg: 'bg-destructive/10',
+        border: 'border-destructive/30',
+        text: 'text-destructive',
         icon: AlertCircle,
     },
     success: {

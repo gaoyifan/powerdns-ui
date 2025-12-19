@@ -44,16 +44,9 @@ export interface View {
 
 export interface Network {
   network: string; // CIDR
-  view: string;
+  view?: string;
 }
 
-export interface ServerConfig {
-  daemon_type: string;
-  version: string;
-  url: string;
-  config_url: string;
-  zones_url: string;
-}
 export interface Server {
   id: string;
   type: string;

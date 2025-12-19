@@ -1,19 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { List, Network, ChevronDown, ChevronUp, Save, Plus, Trash2 } from 'lucide-react';
+import { List, Network as NetworkIcon, ChevronDown, ChevronUp, Save, Plus, Trash2 } from 'lucide-react';
 import { apiClient } from '../api/client';
 import { parseZoneId } from '../utils/zoneUtils';
-import { Button, Card, Flash, Input, Modal, ModalHeader, ModalTitle, ModalContent, ModalFooter } from '../components';
-import type { Zone } from '../types/api';
+import { Button, Card, Flash, Input, Modal, ModalHeader, ModalTitle, ModalContent, ModalFooter, Loading, EmptyState } from '../components';
+import type { Zone, Network } from '../types/api';
 
 interface ViewWithNetworks {
     name: string;
     networks: string[];
 }
 
-interface NetworkItem {
-    network: string; // CIDR
-    view?: string;
-}
+
 
 export const Views: React.FC = () => {
     const [views, setViews] = useState<ViewWithNetworks[]>([]);
@@ -53,8 +50,8 @@ export const Views: React.FC = () => {
             });
 
             // 2. Fetch Networks
-            const networksRes = await apiClient.request<NetworkItem[]>('/servers/localhost/networks');
-            const allNetworks = Array.isArray(networksRes) ? networksRes : (networksRes as { networks: NetworkItem[] }).networks || [];
+            const networksRes = await apiClient.request<Network[]>('/servers/localhost/networks');
+            const allNetworks = Array.isArray(networksRes) ? networksRes : (networksRes as { networks: Network[] }).networks || [];
 
             const viewList = Array.from(foundViews).sort().map(v => ({
                 name: v,
@@ -207,7 +204,8 @@ export const Views: React.FC = () => {
             {error && <Flash variant="danger">{error}</Flash>}
 
             <div className="grid gap-4">
-                {views.map((view) => (
+                {loading && <Loading />}
+                {!loading && views.map((view) => (
                     <Card key={view.name} className={`transition-all ${expandedView === view.name ? 'ring-2 ring-primary/20' : ''}`}>
                         <div
                             className="p-6 flex items-center justify-between cursor-pointer hover:bg-accent/30 transition-colors"
@@ -220,7 +218,7 @@ export const Views: React.FC = () => {
                                 <div>
                                     <h3 className="font-bold text-lg">{view.name}</h3>
                                     <div className="text-sm text-muted-foreground flex items-center gap-2">
-                                        <Network className="size-3" />
+                                        <NetworkIcon className="size-3" />
                                         {view.networks.length} mapped networks
                                     </div>
                                 </div>
@@ -272,10 +270,8 @@ export const Views: React.FC = () => {
                     </Card>
                 ))}
 
-                {views.length === 0 && !loading && (
-                    <div className="text-center py-12 border-2 border-dashed border-border rounded-xl">
-                        <p className="text-muted-foreground">No views found.</p>
-                    </div>
+                {!loading && views.length === 0 && (
+                    <EmptyState message="No views found." />
                 )}
             </div>
 

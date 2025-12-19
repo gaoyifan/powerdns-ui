@@ -4,7 +4,7 @@ import { Plus, ChevronRight, LayoutList, ShieldCheck } from 'lucide-react';
 import { apiClient } from '../api/client';
 import { parseZoneId } from '../utils/zoneUtils';
 import type { RRSet, Zone } from '../types/api';
-import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Flash, Modal, ModalHeader, ModalTitle, ModalContent, ModalFooter, Input, Select, Badge, InlineEditRow } from '../components';
+import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Flash, Modal, ModalHeader, ModalTitle, ModalContent, ModalFooter, Input, Select, Badge, InlineEditRow, Loading } from '../components';
 
 interface RecordWithView extends RRSet {
     view: string;
@@ -257,9 +257,7 @@ export const DomainDetails: React.FC = () => {
                 </CardHeader>
                 <CardContent className="p-0">
                     {loading ? (
-                        <div className="py-20 flex justify-center">
-                            <div className="animate-spin size-8 border-4 border-primary border-t-transparent rounded-full" />
-                        </div>
+                        <Loading className="py-20" />
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="w-full text-left border-collapse">
