@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, useLocation, Link, useNavigate } from 'react-router-dom';
-import { Server, Globe, List, LogOut, Bell } from 'lucide-react';
+import { Globe, List, LogOut, Bell } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/Button';
 import { cn } from '../lib/utils';
@@ -23,7 +23,6 @@ export const MainLayout: React.FC = () => {
     };
 
     const navItems: NavItem[] = [
-        { to: '/', icon: Server, label: 'Dashboard', match: (path: string) => path === '/' },
         { to: '/domains', icon: Globe, label: 'Domains', match: (path: string) => path.startsWith('/domains') },
         { to: '/views', icon: List, label: 'Views', match: (path: string) => path.startsWith('/views') },
     ];
