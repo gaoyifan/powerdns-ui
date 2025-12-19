@@ -60,7 +60,7 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
                     value={view}
                     onChange={e => setView(e.target.value)}
                     options={availableViews.map(v => ({ value: v, label: v }))}
-                    className="h-9 w-full"
+                    className="h-9 w-full text-sm"
                     block
                 />
             </td>
@@ -77,7 +77,7 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
                     value={type}
                     onChange={e => setType(e.target.value)}
                     options={recordTypes.map(t => ({ value: t, label: t }))}
-                    className="h-9 w-full"
+                    className="h-9 w-full text-sm"
                     block
                 />
             </td>

@@ -298,7 +298,7 @@ export const DomainDetails: React.FC = () => {
                                     <tr className="bg-muted/30 border-b border-border">
                                         <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider w-[150px]">View</th>
                                         <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider w-[250px]">Name</th>
-                                        <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider w-[120px]">Type</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider w-[145px]">Type</th>
                                         <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider w-[110px]">TTL</th>
                                         <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Content</th>
                                         <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider w-[160px]">Actions</th>
