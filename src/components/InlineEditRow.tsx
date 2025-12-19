@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button, Input, Select } from '../components';
+import { Button, Input, Select, Modal, ModalHeader, ModalTitle, ModalDescription, ModalFooter } from '../components';
 import { Save, Trash2, X } from 'lucide-react';
 
 interface InlineEditRowProps {
@@ -25,6 +25,7 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
     const [content, setContent] = useState(record.content);
     const [saving, setSaving] = useState(false);
     const [deleting, setDeleting] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
     const handleSave = async () => {
         setSaving(true);
@@ -35,13 +36,18 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
         }
     };
 
-    const handleDelete = async () => {
-        if (!confirm('Are you sure you want to delete this record?')) return;
+    const handleDeleteClick = () => {
+        setIsDeleteModalOpen(true);
+    };
+
+    const confirmDelete = async () => {
+        if (!onDelete) return;
         setDeleting(true);
         try {
-            if (onDelete) await onDelete();
+            await onDelete();
         } finally {
             setDeleting(false);
+            setIsDeleteModalOpen(false);
         }
     };
 
@@ -123,7 +129,7 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
                             size="icon"
                             variant="ghost"
                             className="size-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                            onClick={handleDelete}
+                            onClick={handleDeleteClick}
                             loading={deleting}
                             title="Delete"
                         >
@@ -131,7 +137,23 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
                         </Button>
                     )}
                 </div>
+                <Modal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)}>
+                    <ModalHeader>
+                        <ModalTitle>Delete Record</ModalTitle>
+                        <ModalDescription>
+                            Are you sure you want to delete this record? This action cannot be undone.
+                        </ModalDescription>
+                    </ModalHeader>
+                    <ModalFooter>
+                        <Button variant="ghost" onClick={() => setIsDeleteModalOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button variant="destructive" onClick={confirmDelete} loading={deleting}>
+                            Delete
+                        </Button>
+                    </ModalFooter>
+                </Modal>
             </td>
-        </tr>
+        </tr >
     );
 };
