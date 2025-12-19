@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button, Input, Select, Modal, ModalHeader, ModalTitle, ModalDescription, ModalFooter } from '../components';
+import { Button, Input, Select, DeleteConfirmationModal } from '../components';
 import { Save, Trash2, X } from 'lucide-react';
 
 interface InlineEditRowProps {
@@ -137,22 +137,14 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
                         </Button>
                     )}
                 </div>
-                <Modal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)}>
-                    <ModalHeader>
-                        <ModalTitle>Delete Record</ModalTitle>
-                        <ModalDescription>
-                            Are you sure you want to delete this record? This action cannot be undone.
-                        </ModalDescription>
-                    </ModalHeader>
-                    <ModalFooter>
-                        <Button variant="ghost" onClick={() => setIsDeleteModalOpen(false)}>
-                            Cancel
-                        </Button>
-                        <Button variant="destructive" onClick={confirmDelete} loading={deleting}>
-                            Delete
-                        </Button>
-                    </ModalFooter>
-                </Modal>
+                <DeleteConfirmationModal
+                    isOpen={isDeleteModalOpen}
+                    onClose={() => setIsDeleteModalOpen(false)}
+                    onConfirm={confirmDelete}
+                    title="Delete Record"
+                    description="Are you sure you want to delete this record? This action cannot be undone."
+                    loading={deleting}
+                />
             </td>
         </tr >
     );

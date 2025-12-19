@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { apiClient } from '../api/client';
 import { useZones } from '../hooks/useZones';
 import { formatUptime } from '../utils/formatUtils';
-import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Flash, Modal, ModalHeader, ModalTitle, ModalContent, ModalFooter, Input, Select, Badge, StatsCard, Loading, EmptyState } from '../components';
+import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Flash, Modal, ModalHeader, ModalTitle, ModalContent, ModalFooter, Input, Select, Badge, StatsCard, Loading, EmptyState, DeleteConfirmationModal } from '../components';
 
 
 
@@ -18,6 +18,10 @@ export const Domains: React.FC = () => {
     const [newZoneName, setNewZoneName] = useState('');
     const [newZoneType, setNewZoneType] = useState('Native');
     const [creating, setCreating] = useState(false);
+
+    // Delete State
+    const [zoneToDelete, setZoneToDelete] = useState<{ ids: string[], name: string } | null>(null);
+    const [deleting, setDeleting] = useState(false);
 
     const handleCreateZone = async () => {
         if (!newZoneName) return;
@@ -48,16 +52,22 @@ export const Domains: React.FC = () => {
     const handleDeleteZone = async (ids: string[], name: string, e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
+        setZoneToDelete({ ids, name });
+    };
 
-        if (!confirm(`Are you sure you want to delete domain "${name}"? This will delete all ${ids.length} versions of it across views.`)) return;
-
+    const confirmDeleteZone = async () => {
+        if (!zoneToDelete) return;
+        setDeleting(true);
         try {
-            await Promise.all(ids.map(id =>
+            await Promise.all(zoneToDelete.ids.map(id =>
                 apiClient.request(`/servers/localhost/zones/${id}`, { method: 'DELETE' })
             ));
             refetch();
+            setZoneToDelete(null);
         } catch (err) {
             alert('Failed to delete domain: ' + (err instanceof Error ? err.message : 'Unknown error'));
+        } finally {
+            setDeleting(false);
         }
     };
 
@@ -197,6 +207,16 @@ export const Domains: React.FC = () => {
                     </Button>
                 </ModalFooter>
             </Modal>
+
+
+            <DeleteConfirmationModal
+                isOpen={!!zoneToDelete}
+                onClose={() => setZoneToDelete(null)}
+                onConfirm={confirmDeleteZone}
+                title={`Delete Domain "${zoneToDelete?.name}"`}
+                description={`Are you sure you want to delete domain "${zoneToDelete?.name}"? This will delete all ${zoneToDelete?.ids.length} versions of it across views. This action cannot be undone.`}
+                loading={deleting}
+            />
         </div >
     );
 };

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { List, Network as NetworkIcon, ChevronDown, ChevronUp, Save, Plus, Trash2 } from 'lucide-react';
 import { apiClient } from '../api/client';
 import { parseZoneId } from '../utils/zoneUtils';
-import { Button, Card, Flash, Input, Modal, ModalHeader, ModalTitle, ModalContent, ModalFooter, Loading, EmptyState } from '../components';
+import { Button, Card, Flash, Input, Modal, ModalHeader, ModalTitle, ModalContent, ModalFooter, Loading, EmptyState, DeleteConfirmationModal } from '../components';
 import type { Zone, Network } from '../types/api';
 
 interface ViewWithNetworks {
@@ -26,6 +26,10 @@ export const Views: React.FC = () => {
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
     const [newViewName, setNewViewName] = useState('');
     const [creating, setCreating] = useState(false);
+
+    // Delete State
+    const [viewToDelete, setViewToDelete] = useState<string | null>(null);
+    const [deleting, setDeleting] = useState(false);
 
     const fetchData = async () => {
         setLoading(true);
@@ -175,17 +179,24 @@ export const Views: React.FC = () => {
             alert('Cannot delete default view');
             return;
         }
-        if (!confirm(`Are you sure you want to delete view "${viewName}"? This will NOT delete zones in it, but only the marker.`)) return;
+        setViewToDelete(viewName);
+    };
 
+    const confirmDeleteView = async () => {
+        if (!viewToDelete) return;
+        setDeleting(true);
         try {
-            const markerName = `_marker.${viewName}.`;
+            const markerName = `_marker.${viewToDelete}.`;
             await apiClient.request(`/servers/localhost/zones/${markerName}`, {
                 method: 'DELETE'
             });
-            fetchData();
+            await fetchData();
+            setViewToDelete(null);
         } catch (err: unknown) {
             console.error(err);
-            fetchData();
+            alert('Failed to delete view: ' + (err instanceof Error ? err.message : 'Unknown error'));
+        } finally {
+            setDeleting(false);
         }
     };
 
@@ -299,6 +310,15 @@ export const Views: React.FC = () => {
                     </Button>
                 </ModalFooter>
             </Modal>
+
+            <DeleteConfirmationModal
+                isOpen={!!viewToDelete}
+                onClose={() => setViewToDelete(null)}
+                onConfirm={confirmDeleteView}
+                title={`Delete View "${viewToDelete}"`}
+                description="Are you sure you want to delete this view? This will NOT delete the zones assigned to it, but only the view marker. Zones will revert to default view if not reassigned."
+                loading={deleting}
+            />
         </div>
     );
 };
