@@ -1,6 +1,5 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { ThemeProvider, BaseStyles } from '@primer/react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Login } from './pages/Login';
 import { Views } from './pages/Views';
@@ -22,7 +21,7 @@ const AppRoutes = () => {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
-        <Route path="/" element={<div>Dashboard Placeholder</div>} />
+        <Route path="/" element={<div className="p-6 text-text-secondary">Dashboard Placeholder</div>} />
         <Route path="/zones" element={<Zones />} />
         <Route path="/zones/:name" element={<ZoneDetails />} />
         <Route path="/views" element={<Views />} />
@@ -34,15 +33,11 @@ const AppRoutes = () => {
 
 function App() {
   return (
-    <ThemeProvider colorMode="auto">
-      <BaseStyles>
-        <AuthProvider>
-          <BrowserRouter>
-            <AppRoutes />
-          </BrowserRouter>
-        </AuthProvider>
-      </BaseStyles>
-    </ThemeProvider>
+    <AuthProvider>
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
 

@@ -1,22 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Heading, Text, Flash, Button, FormControl, TextInput, Select } from '@primer/react';
-import { PlusIcon, TrashIcon } from '@primer/octicons-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { apiClient } from '../api/client';
 import type { Network, Zone } from '../types/api';
 import { parseZoneId } from '../utils/zoneUtils';
-
-// Simple wrapper for styling
-const Card = ({ children, style }: { children: React.ReactNode, style?: React.CSSProperties }) => (
-    <div style={{
-        backgroundColor: 'var(--overlay-bgColor-default, #1c2128)',
-        border: '1px solid var(--borderColor-default)',
-        borderRadius: '6px',
-        padding: '16px',
-        ...style
-    }}>
-        {children}
-    </div>
-);
+import { Button, Card, Flash, Modal, Input, Select } from '../components';
 
 export const Networks: React.FC = () => {
     const [networks, setNetworks] = useState<Network[]>([]);
@@ -45,8 +32,8 @@ export const Networks: React.FC = () => {
             setViews(Array.from(foundViews).sort());
 
             setError(null);
-        } catch (err: any) {
-            setError(err.message || 'Failed to load data');
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Failed to load data');
         } finally {
             setLoading(false);
         }
@@ -60,17 +47,16 @@ export const Networks: React.FC = () => {
         if (!newSubnet) return;
         setCreating(true);
         try {
-            // PUT /networks/:subnet { view: '...' }
             await apiClient.request(`/servers/localhost/networks/${newSubnet}`, {
                 method: 'PUT',
-                body: JSON.stringify({ view: selectedView || null }) // explicit null for no view? or string?
+                body: JSON.stringify({ view: selectedView || null })
             });
             setNewSubnet('');
             setSelectedView('');
             setIsDialogOpen(false);
             fetchData();
-        } catch (err: any) {
-            alert('Failed to add network: ' + err.message);
+        } catch (err: unknown) {
+            alert('Failed to add network: ' + (err instanceof Error ? err.message : 'Unknown error'));
         } finally {
             setCreating(false);
         }
@@ -83,39 +69,41 @@ export const Networks: React.FC = () => {
                 method: 'DELETE'
             });
             fetchData();
-        } catch (err: any) {
-            alert('Failed to delete network mapping: ' + err.message);
+        } catch (err: unknown) {
+            alert('Failed to delete network mapping: ' + (err instanceof Error ? err.message : 'Unknown error'));
         }
     }
 
     return (
-        <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <div className="p-6 max-w-5xl mx-auto">
+            <div className="flex justify-between items-center mb-6">
                 <div>
-                    <Heading>Networks</Heading>
-                    <Text style={{ color: 'var(--fgColor-muted)' }}>Map Client Subnets to Views</Text>
+                    <h1 className="text-2xl font-semibold text-text-primary">Networks</h1>
+                    <p className="text-text-secondary text-sm">Map Client Subnets to Views</p>
                 </div>
-                <Button leadingVisual={PlusIcon} variant="primary" onClick={() => setIsDialogOpen(true)}>Add Network</Button>
+                <Button variant="primary" leadingIcon={Plus} onClick={() => setIsDialogOpen(true)}>
+                    Add Network
+                </Button>
             </div>
 
-            {error && <Flash variant="danger" style={{ marginBottom: '16px' }}>{error}</Flash>}
+            {error && <Flash variant="danger" className="mb-4">{error}</Flash>}
 
             {loading ? (
-                <Text>Loading networks...</Text>
+                <p className="text-text-secondary">Loading networks...</p>
             ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {networks.length === 0 ? (
-                        <Text style={{ fontStyle: 'italic', color: 'var(--fgColor-muted)' }}>No networks configured.</Text>
+                        <p className="text-text-muted italic">No networks configured.</p>
                     ) : networks.map((net, i) => (
-                        <Card key={net.network + i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Card key={net.network + i} className="flex justify-between items-center">
                             <div>
-                                <Text style={{ fontWeight: 'bold', display: 'block' }}>{net.network}</Text>
-                                <Text style={{ fontSize: '12px', color: 'var(--fgColor-muted)' }}>View: {net.view || 'default'}</Text>
+                                <p className="font-semibold text-text-primary">{net.network}</p>
+                                <p className="text-xs text-text-secondary">View: {net.view || 'default'}</p>
                             </div>
                             <Button
                                 variant="danger"
-                                size="small"
-                                leadingVisual={TrashIcon}
+                                size="sm"
+                                leadingIcon={Trash2}
                                 onClick={() => handleDeleteNetwork(net.network)}
                                 aria-label={`Remove ${net.network}`}
                             />
@@ -124,41 +112,35 @@ export const Networks: React.FC = () => {
                 </div>
             )}
 
-            {isDialogOpen && (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100
-                }}>
-                    <div style={{ backgroundColor: '#1c2128', padding: '24px', borderRadius: '6px', width: '400px', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', border: '1px solid var(--borderColor-default)' }}>
-                        <Heading style={{ fontSize: '18px', marginBottom: '16px' }}>Map Network</Heading>
-                        <FormControl style={{ marginBottom: '16px' }}>
-                            <FormControl.Label>Subnet (CIDR)</FormControl.Label>
-                            <TextInput
-                                block
-                                value={newSubnet}
-                                onChange={e => setNewSubnet(e.target.value)}
-                                placeholder="e.g. 192.168.0.0/24"
-                                autoFocus
-                            />
-                        </FormControl>
+            <Modal isOpen={isDialogOpen} onClose={() => setIsDialogOpen(false)} title="Map Network">
+                <div className="space-y-4">
+                    <Input
+                        label="Subnet (CIDR)"
+                        value={newSubnet}
+                        onChange={e => setNewSubnet(e.target.value)}
+                        placeholder="e.g. 192.168.0.0/24"
+                        block
+                        autoFocus
+                    />
 
-                        <FormControl>
-                            <FormControl.Label>View</FormControl.Label>
-                            <Select block value={selectedView} onChange={e => setSelectedView(e.target.value)}>
-                                <Select.Option value="" disabled>Select a View...</Select.Option>
-                                {views.map(v => <Select.Option key={v} value={v}>{v}</Select.Option>)}
-                            </Select>
-                        </FormControl>
+                    <Select
+                        label="View"
+                        value={selectedView}
+                        onChange={e => setSelectedView(e.target.value)}
+                        block
+                    >
+                        <option value="" disabled>Select a View...</option>
+                        {views.map(v => <option key={v} value={v}>{v}</option>)}
+                    </Select>
 
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '24px' }}>
-                            <Button onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                            <Button variant="primary" disabled={creating || !newSubnet || !selectedView} onClick={handleAddNetwork}>
-                                {creating ? 'Saving...' : 'Save'}
-                            </Button>
-                        </div>
+                    <div className="flex justify-end gap-2 pt-4">
+                        <Button onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+                        <Button variant="primary" disabled={creating || !newSubnet || !selectedView} onClick={handleAddNetwork} loading={creating}>
+                            {creating ? 'Saving...' : 'Save'}
+                        </Button>
                     </div>
                 </div>
-            )}
+            </Modal>
         </div>
     );
 };

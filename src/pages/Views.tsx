@@ -1,22 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Heading, Text, Flash, Button, FormControl, TextInput } from '@primer/react';
-import { PlusIcon, TrashIcon } from '@primer/octicons-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { apiClient } from '../api/client';
 import type { Zone } from '../types/api';
 import { parseZoneId } from '../utils/zoneUtils';
-
-// Simple wrapper for styling
-const Card = ({ children, style }: { children: React.ReactNode, style?: React.CSSProperties }) => (
-    <div style={{
-        backgroundColor: 'var(--overlay-bgColor-default, #1c2128)',
-        border: '1px solid var(--borderColor-default)',
-        borderRadius: '6px',
-        padding: '16px',
-        ...style
-    }}>
-        {children}
-    </div>
-);
+import { Button, Card, Flash, Modal, Input } from '../components';
 
 export const Views: React.FC = () => {
     const [views, setViews] = useState<string[]>([]);
@@ -29,9 +16,8 @@ export const Views: React.FC = () => {
     const fetchViews = async () => {
         try {
             setLoading(true);
-            // v5 API doesn't list views reliably, so we derive them from Zones
             const res = await apiClient.request<Zone[]>('/servers/localhost/zones');
-            const foundViews = new Set<string>(['default']); // default always exists
+            const foundViews = new Set<string>(['default']);
 
             res.forEach(zone => {
                 const { view } = parseZoneId(zone.name);
@@ -40,8 +26,8 @@ export const Views: React.FC = () => {
 
             setViews(Array.from(foundViews).sort());
             setError(null);
-        } catch (err: any) {
-            setError(err.message || 'Failed to load views');
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Failed to load views');
         } finally {
             setLoading(false);
         }
@@ -55,7 +41,6 @@ export const Views: React.FC = () => {
         if (!newViewName) return;
         setCreating(true);
         try {
-            // Create a marker zone to implicitly define the view
             const markerName = `_marker.${newViewName}.`;
             await apiClient.request('/servers/localhost/zones', {
                 method: 'POST',
@@ -68,14 +53,14 @@ export const Views: React.FC = () => {
             setNewViewName('');
             setIsDialogOpen(false);
             fetchViews();
-        } catch (err: any) {
-            if (err.status === 409) {
-                // Already exists, just refresh
+        } catch (err: unknown) {
+            const error = err as { status?: number; message?: string };
+            if (error.status === 409) {
                 setIsDialogOpen(false);
                 fetchViews();
                 return;
             }
-            alert('Failed to create view: ' + err.message);
+            alert('Failed to create view: ' + (error.message || 'Unknown error'));
         } finally {
             setCreating(false);
         }
@@ -88,47 +73,45 @@ export const Views: React.FC = () => {
         }
         if (!confirm(`Are you sure you want to delete view "${viewName}"? This will NOT delete zones in it, but only the marker.`)) return;
 
-        // We can only try to delete the marker zone if we know it?
-        // Actually, we can't easily "delete a view" if it's implicit.
-        // We can check if there's a marker zone and delete it.
         try {
             const markerName = `_marker.${viewName}.`;
-            // Retrieve zone ID for the marker in that view
-            const markerId = `${markerName}.${viewName}`; // Best guess ID for v5 variant
+            const markerId = `${markerName}.${viewName}`;
 
             await apiClient.request(`/servers/localhost/zones/${markerId}`, {
                 method: 'DELETE'
             });
             fetchViews();
-        } catch (err: any) {
-            alert('Failed to delete view marker: ' + err.message);
+        } catch (err: unknown) {
+            alert('Failed to delete view marker: ' + (err instanceof Error ? err.message : 'Unknown error'));
         }
     }
 
     return (
-        <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <div className="p-6 max-w-5xl mx-auto">
+            <div className="flex justify-between items-center mb-6">
                 <div>
-                    <Heading>Views</Heading>
-                    <Text style={{ color: 'var(--fgColor-muted)' }}>Manage DNS Views (Implicit via Zones)</Text>
+                    <h1 className="text-2xl font-semibold text-text-primary">Views</h1>
+                    <p className="text-text-secondary text-sm">Manage DNS Views (Implicit via Zones)</p>
                 </div>
-                <Button leadingVisual={PlusIcon} variant="primary" onClick={() => setIsDialogOpen(true)}>Create View</Button>
+                <Button variant="primary" leadingIcon={Plus} onClick={() => setIsDialogOpen(true)}>
+                    Create View
+                </Button>
             </div>
 
-            {error && <Flash variant="danger" style={{ marginBottom: '16px' }}>{error}</Flash>}
+            {error && <Flash variant="danger" className="mb-4">{error}</Flash>}
 
             {loading ? (
-                <Text>Loading views...</Text>
+                <p className="text-text-secondary">Loading views...</p>
             ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {views.map(view => (
-                        <Card key={view} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Text style={{ fontWeight: 'bold' }}>{view}</Text>
+                        <Card key={view} className="flex justify-between items-center">
+                            <span className="font-semibold text-text-primary">{view}</span>
                             {view !== 'default' && (
                                 <Button
                                     variant="danger"
-                                    size="small"
-                                    leadingVisual={TrashIcon}
+                                    size="sm"
+                                    leadingIcon={Trash2}
                                     onClick={() => handleDeleteView(view)}
                                     aria-label={`Delete ${view}`}
                                 />
@@ -138,32 +121,24 @@ export const Views: React.FC = () => {
                 </div>
             )}
 
-            {isDialogOpen && (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center'
-                }}>
-                    <div style={{ backgroundColor: '#1c2128', padding: '24px', borderRadius: '6px', width: '400px', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', border: '1px solid var(--borderColor-default)' }}>
-                        <Heading style={{ fontSize: '18px', marginBottom: '16px' }}>Create New View</Heading>
-                        <FormControl>
-                            <FormControl.Label>View Name</FormControl.Label>
-                            <TextInput
-                                block
-                                value={newViewName}
-                                onChange={e => setNewViewName(e.target.value)}
-                                placeholder="e.g. internal, external"
-                                autoFocus
-                            />
-                        </FormControl>
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '24px' }}>
-                            <Button onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                            <Button variant="primary" disabled={creating || !newViewName} onClick={handleCreateView}>
-                                {creating ? 'Creating...' : 'Create'}
-                            </Button>
-                        </div>
+            <Modal isOpen={isDialogOpen} onClose={() => setIsDialogOpen(false)} title="Create New View">
+                <div className="space-y-4">
+                    <Input
+                        label="View Name"
+                        value={newViewName}
+                        onChange={e => setNewViewName(e.target.value)}
+                        placeholder="e.g. internal, external"
+                        block
+                        autoFocus
+                    />
+                    <div className="flex justify-end gap-2 pt-4">
+                        <Button onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+                        <Button variant="primary" disabled={creating || !newViewName} onClick={handleCreateView} loading={creating}>
+                            {creating ? 'Creating...' : 'Create'}
+                        </Button>
                     </div>
                 </div>
-            )}
+            </Modal>
         </div>
     );
 };
