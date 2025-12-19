@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Plus, ChevronRight, LayoutList, ShieldCheck } from 'lucide-react';
+import { Plus, ChevronRight, LayoutList, ShieldCheck, Search } from 'lucide-react';
 import { apiClient } from '../api/client';
 import type { RecordWithView } from '../types/domain';
 import { useDomainRecords } from '../hooks/useDomainRecords';
@@ -21,6 +21,19 @@ export const DomainDetails: React.FC = () => {
     const [newRecordContent, setNewRecordContent] = useState('');
     const [selectedTargetView, setSelectedTargetView] = useState('default');
     const [creatingRecord, setCreatingRecord] = useState(false);
+
+    // Search State
+    const [searchQuery, setSearchQuery] = useState('');
+
+    const filteredRecords = unifiedRecords.filter(record => {
+        const query = searchQuery.toLowerCase();
+        return (
+            record.name.toLowerCase().includes(query) ||
+            record.type.toLowerCase().includes(query) ||
+            record.records.some(r => r.content.toLowerCase().includes(query)) ||
+            record.view.toLowerCase().includes(query)
+        );
+    });
 
     const handleSaveRecord = async (original: RecordWithView, data: { name: string; type: string; ttl: number; content: string; view: string }) => {
         try {
@@ -168,13 +181,26 @@ export const DomainDetails: React.FC = () => {
 
             <Card className="overflow-hidden">
                 <CardHeader className="border-b bg-muted/20">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                        <ShieldCheck className="size-5 text-primary" />
-                        Resource Records
-                    </CardTitle>
-                    <CardDescription>
-                        Unified list of records. Click "Edit" to modify a record inline.
-                    </CardDescription>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div className="space-y-1.5">
+                            <CardTitle className="text-lg flex items-center gap-2">
+                                <ShieldCheck className="size-5 text-primary" />
+                                Resource Records
+                            </CardTitle>
+                            <CardDescription>
+                                Unified list of records. Click "Edit" to modify a record inline.
+                            </CardDescription>
+                        </div>
+                        <div className="w-full sm:w-72">
+                            <Input
+                                placeholder="Search records..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                leadingIcon={Search}
+                                block
+                            />
+                        </div>
+                    </div>
                 </CardHeader>
                 <CardContent className="p-0">
                     {loading ? (
@@ -199,7 +225,13 @@ export const DomainDetails: React.FC = () => {
                                                 No records found for this domain.
                                             </td>
                                         </tr>
-                                    ) : unifiedRecords.flatMap((rr) => {
+                                    ) : filteredRecords.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground italic">
+                                                No matching records found.
+                                            </td>
+                                        </tr>
+                                    ) : filteredRecords.flatMap((rr) => {
                                         const uniqueKey = `${rr.zoneId}-${rr.name}-${rr.type}`;
                                         const isEditing = editingRecordKey === uniqueKey;
 
