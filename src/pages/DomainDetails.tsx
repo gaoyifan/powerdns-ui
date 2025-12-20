@@ -6,11 +6,13 @@ import type { RRSet } from '../types/api';
 import type { RecordWithView } from '../types/domain';
 import { useDomainRecords } from '../hooks/useDomainRecords';
 import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Flash, Input, Badge, InlineEditRow, Loading, ImportZoneModal, type ParsedRecord } from '../components';
+import { useNotification } from '../contexts/NotificationContext';
 import { cn } from '../lib/utils';
 import { formatRecordContent, normalizeRecordName } from '../utils/recordUtils';
 import { COMMENT_RR_TYPE, encodeRFC3597, decodeRFC3597 } from '../utils/dns';
 
 export const DomainDetails: React.FC = () => {
+    const { notify } = useNotification();
     const { name: domainName } = useParams<{ name: string }>();
     const { unifiedRecords: rawRecords, availableViews, loading, error, refetch } = useDomainRecords(domainName);
 
@@ -209,8 +211,13 @@ export const DomainDetails: React.FC = () => {
 
             setEditingRecordKey(null);
             refetch();
+            notify({ type: 'success', message: 'Record updated successfully' });
         } catch (err: unknown) {
-            alert('Failed to update record: ' + (err instanceof Error ? err.message : 'Unknown error'));
+            notify({
+                type: 'error',
+                title: 'Update Failed',
+                message: err instanceof Error ? err.message : 'Unknown error'
+            });
         }
     };
 
@@ -241,8 +248,13 @@ export const DomainDetails: React.FC = () => {
 
             await zoneService.patchZone(record.zoneId, [rrset]);
             refetch();
+            notify({ type: 'success', message: `Record ${record.disabled ? 'enabled' : 'disabled'} successfully` });
         } catch (err: unknown) {
-            alert(`Failed to ${record.disabled ? 'enable' : 'disable'} record: ` + (err instanceof Error ? err.message : 'Unknown error'));
+            notify({
+                type: 'error',
+                title: 'Operation Failed',
+                message: (err instanceof Error ? err.message : 'Unknown error')
+            });
         }
     };
 
@@ -257,8 +269,13 @@ export const DomainDetails: React.FC = () => {
             }]);
             setEditingRecordKey(null);
             refetch();
+            notify({ type: 'success', message: 'Record deleted successfully' });
         } catch (err: unknown) {
-            alert('Failed to delete record: ' + (err instanceof Error ? err.message : 'Unknown error'));
+            notify({
+                type: 'error',
+                title: 'Deletion Failed',
+                message: err instanceof Error ? err.message : 'Unknown error'
+            });
         }
     };
 
@@ -303,8 +320,13 @@ export const DomainDetails: React.FC = () => {
 
             setIsAddingRecord(false);
             refetch();
+            notify({ type: 'success', message: 'New record added successfully' });
         } catch (err: unknown) {
-            alert('Failed to add record: ' + (err instanceof Error ? err.message : 'Unknown error'));
+            notify({
+                type: 'error',
+                title: 'Add Failed',
+                message: err instanceof Error ? err.message : 'Unknown error'
+            });
         }
     };
 
@@ -336,9 +358,19 @@ export const DomainDetails: React.FC = () => {
                 changetype: 'EXTEND'
             })));
 
+            setIsImportModalOpen(false);
             refetch();
+            notify({
+                type: 'success',
+                title: 'Import Successful',
+                message: `Successfully imported ${records.length} records.`
+            });
         } catch (err: unknown) {
-            alert('Failed to import records: ' + (err instanceof Error ? err.message : 'Unknown error'));
+            notify({
+                type: 'error',
+                title: 'Import Failed',
+                message: err instanceof Error ? err.message : 'Unknown error'
+            });
         }
     };
 

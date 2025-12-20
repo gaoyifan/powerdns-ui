@@ -3,6 +3,8 @@ import { List, Network as NetworkIcon, ChevronDown, ChevronUp, Save, Plus, Trash
 import { pdns } from '../api/pdns';
 import { cn } from '../lib/utils';
 import { Button, Card, Flash, Input, Modal, ModalHeader, ModalTitle, ModalContent, ModalFooter, Loading, EmptyState, DeleteConfirmationModal, Badge } from '../components';
+import { useNotification } from '../contexts/NotificationContext';
+import { pool } from '../utils/promiseUtils';
 import type { Network } from '../types/api';
 
 interface ViewWithNetworks {
@@ -11,6 +13,7 @@ interface ViewWithNetworks {
 }
 
 export const Views: React.FC = () => {
+    const { notify, confirm: showConfirm } = useNotification();
     const [views, setViews] = useState<ViewWithNetworks[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -138,7 +141,11 @@ export const Views: React.FC = () => {
             setExpandedView(null);
 
         } catch (err: unknown) {
-            alert('Failed to save networks: ' + (err instanceof Error ? err.message : 'Unknown error'));
+            notify({
+                type: 'error',
+                title: 'Operation Failed',
+                message: err instanceof Error ? err.message : 'Unknown error'
+            });
         } finally {
             setSaving(false);
         }
@@ -171,35 +178,49 @@ export const Views: React.FC = () => {
             const networks = await fetchUrlContent(url);
             setEditNetworksContent(networks.join('\n'));
         } catch (e) {
-            alert((e as Error).message);
+            notify({
+                type: 'error',
+                title: 'Fetch Failed',
+                message: (e as Error).message
+            });
         }
     };
 
     const handleUpdateAll = async () => {
-        if (!confirm('This will fetch network lists from saved URLs and sync mappings. Priority determines override order. Continue?')) {
-            return;
-        }
+        const confirmed = await showConfirm({
+            title: 'Update All Networks',
+            message: 'This will fetch network lists from all configured URLs and synchronize your local network-to-view mappings. View priorities will be respected during conflicts.',
+            confirmText: 'Sync All',
+            cancelText: 'Cancel'
+        });
+
+        if (!confirmed) return;
+
         setUpdatingAll(true);
         try {
             // 1. Collect desired mappings from all URLs (respecting priority)
-            const managedViews = views.filter(v => v.name !== 'default' && viewUrls[v.name]);
-            managedViews.sort((a, b) => (viewPriorities[a.name] || 0) - (viewPriorities[b.name] || 0));
+            const managedViews = views
+                .filter(v => v.name !== 'default' && viewUrls[v.name])
+                .sort((a, b) => (viewPriorities[a.name] || 0) - (viewPriorities[b.name] || 0));
 
             const desiredMappings: Record<string, string> = {};
             for (const view of managedViews) {
                 try {
                     const networks = await fetchUrlContent(viewUrls[view.name]);
-                    for (const net of networks) {
+                    networks.forEach(net => {
                         desiredMappings[net] = view.name;
-                    }
+                    });
                 } catch (e) {
-                    console.error(`Failed to fetch for view ${view.name}`, e);
+                    console.error(`[Views] Failed to fetch for view ${view.name}:`, e);
                 }
             }
 
-            // 2. Apply all desired mappings
-            for (const [netCode, targetView] of Object.entries(desiredMappings)) {
-                await pdns.updateNetwork(netCode, targetView);
+
+            // 2. Apply all desired mappings with limited concurrency to avoid ERR_INSUFFICIENT_RESOURCES
+            const mappingEntries = Object.entries(desiredMappings);
+            if (mappingEntries.length > 0) {
+                const tasks = mappingEntries.map(([net, view]) => () => pdns.updateNetwork(net, view));
+                await pool(tasks, 10); // Batch update with 10 concurrent requests
             }
 
             // 3. Cleanup Orphan Networks (mappings to non-existent views)
@@ -208,23 +229,28 @@ export const Views: React.FC = () => {
                 pdns.getNetworks()
             ]);
 
-            const apiViews = viewsRes.views || [];
-            const validViews = new Set(['default', ...apiViews]);
-            const currentNetworks = Array.isArray(networksRes) ? networksRes : (networksRes as { networks: Network[] }).networks || [];
+            const validViews = new Set(['default', ...(viewsRes.views || [])]);
+            const currentNetworks = Array.isArray(networksRes) ? networksRes : (networksRes as any).networks || [];
 
             for (const net of currentNetworks) {
-                const currentView = net.view || '';
-                // An orphan is any network mapped to a view that no longer exists
-                if (currentView && !validViews.has(currentView)) {
+                if (net.view && !validViews.has(net.view)) {
                     await pdns.updateNetwork(net.network, '');
                 }
             }
 
             await fetchData();
-            alert('Update All Complete.');
+            notify({
+                type: 'success',
+                title: 'Sync Complete',
+                message: `Successfully synchronized ${mappingEntries.length} network mappings.`
+            });
 
         } catch (e) {
-            alert('Update All Failed: ' + (e as Error).message);
+            notify({
+                type: 'error',
+                title: 'Sync Failed',
+                message: (e as Error).message
+            });
         } finally {
             setUpdatingAll(false);
         }
@@ -256,7 +282,11 @@ export const Views: React.FC = () => {
             setNewViewName('');
             await fetchData();
         } catch (err: unknown) {
-            alert('Failed to create view: ' + (err instanceof Error ? err.message : 'Unknown error'));
+            notify({
+                type: 'error',
+                title: 'View Creation Failed',
+                message: err instanceof Error ? err.message : 'Unknown error'
+            });
         } finally {
             setCreating(false);
         }
@@ -265,7 +295,10 @@ export const Views: React.FC = () => {
     const handleDeleteView = async (viewName: string, e: React.MouseEvent) => {
         e.stopPropagation();
         if (viewName === 'default') {
-            alert('Cannot delete default view');
+            notify({
+                type: 'warning',
+                message: 'Cannot delete default view'
+            });
             return;
         }
         setViewToDelete(viewName);
@@ -320,7 +353,11 @@ export const Views: React.FC = () => {
             setViewToDelete(null);
         } catch (err: unknown) {
             console.error(err);
-            alert('Failed to delete view: ' + (err instanceof Error ? err.message : 'Unknown error'));
+            notify({
+                type: 'error',
+                title: 'Deletion Failed',
+                message: err instanceof Error ? err.message : 'Unknown error'
+            });
         } finally {
             setDeleting(false);
         }

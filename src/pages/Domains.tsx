@@ -5,12 +5,10 @@ import { pdns } from '../api/pdns';
 import { useZones } from '../hooks/useZones';
 import { formatUptime } from '../utils/formatUtils';
 import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Flash, Modal, ModalHeader, ModalTitle, ModalContent, ModalFooter, Input, Select, Badge, StatsCard, Loading, EmptyState, DeleteConfirmationModal } from '../components';
-
-
-
-
+import { useNotification } from '../contexts/NotificationContext';
 
 export const Domains: React.FC = () => {
+    const { notify } = useNotification();
     const { unifiedZones, serverInfo, stats, loading, error, refetch } = useZones();
 
     // Create Modal State
@@ -39,8 +37,17 @@ export const Domains: React.FC = () => {
             setNewZoneName('');
             setIsDialogOpen(false);
             refetch();
+            notify({
+                type: 'success',
+                title: 'Zone Created',
+                message: `Zone ${zoneId} has been created successfully.`
+            });
         } catch (err: unknown) {
-            alert('Failed to create zone: ' + (err instanceof Error ? err.message : 'Unknown error'));
+            notify({
+                type: 'error',
+                title: 'Creation Failed',
+                message: err instanceof Error ? err.message : 'Unknown error'
+            });
         } finally {
             setCreating(false);
         }
@@ -59,8 +66,17 @@ export const Domains: React.FC = () => {
             await Promise.all(zoneToDelete.ids.map(id => pdns.deleteZone(id)));
             refetch();
             setZoneToDelete(null);
+            notify({
+                type: 'success',
+                title: 'Domain Deleted',
+                message: `Domain ${zoneToDelete.name} and its variants have been deleted.`
+            });
         } catch (err) {
-            alert('Failed to delete domain: ' + (err instanceof Error ? err.message : 'Unknown error'));
+            notify({
+                type: 'error',
+                title: 'Deletion Failed',
+                message: err instanceof Error ? err.message : 'Unknown error'
+            });
         } finally {
             setDeleting(false);
         }

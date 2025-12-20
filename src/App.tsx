@@ -29,12 +29,16 @@ const AppRoutes = () => {
   )
 }
 
+import { NotificationProvider } from './contexts/NotificationContext';
+
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
+      <NotificationProvider>
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </NotificationProvider>
     </AuthProvider>
   );
 }
