@@ -6,19 +6,7 @@ services:
       - "53:53/udp"
     volumes:
       - pdns-data:/var/lib/powerdns
-    command:
-      - "--no-config"
-      - "--launch=lmdb"
-      - "--lmdb-filename=/var/lib/powerdns/pdns.lmdb"
-      - "--views=yes"
-      - "--api=yes"
-      - "--edns-subnet-processing=yes"
-      - "--api-key=secret"
-      - "--webserver=yes"
-      - "--webserver-address=0.0.0.0"
-      - "--webserver-allow-from=0.0.0.0/0"
-      - "--webserver-port=8081"
-      - "--dname-processing=yes"
+      - ./pdns.conf:/etc/powerdns/pdns.conf:ro
     restart: unless-stopped
 
   ui:
