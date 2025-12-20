@@ -23,8 +23,6 @@ export const useZones = () => {
             const grouped: Record<string, UnifiedZone> = {};
             zonesRes.forEach(zone => {
                 const { name, view } = parseZoneId(zone.id);
-                // Exclude marker zones
-                if (name.startsWith('_marker.')) return;
 
                 if (!grouped[name]) {
                     grouped[name] = { name, views: [], ids: [] };

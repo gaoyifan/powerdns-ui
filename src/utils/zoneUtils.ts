@@ -2,11 +2,6 @@ export const parseZoneId = (zoneId: string) => {
     // Handle encoded IDs from API (e.g., =5Fmarker)
     const decoded = zoneId.replace(/=5F/g, '_');
 
-    // Check for marker pattern: _marker.<view>.
-    const markerMatch = decoded.match(/^_marker\.([^.]+)\.$/);
-    if (markerMatch) {
-        return { name: decoded, view: markerMatch[1] };
-    }
 
     // Format: "zone_name..view_name"
     if (decoded.includes('..')) {

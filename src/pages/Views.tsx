@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { List, Network as NetworkIcon, ChevronDown, ChevronUp, Save, Plus, Trash2 } from 'lucide-react';
 import { apiClient } from '../api/client';
-import { parseZoneId } from '../utils/zoneUtils';
+import { pdns } from '../api/pdns';
 import { cn } from '../lib/utils';
 import { Button, Card, Flash, Input, Modal, ModalHeader, ModalTitle, ModalContent, ModalFooter, Loading, EmptyState, DeleteConfirmationModal } from '../components';
-import type { Zone, Network } from '../types/api';
+import type { Network } from '../types/api';
 
 interface ViewWithNetworks {
     name: string;
@@ -55,23 +55,9 @@ export const Views: React.FC = () => {
         setLoading(true);
         setError(null);
         try {
-            // 1. Fetch Zones to discover views (via _marker zones)
-            const zones = await apiClient.request<Zone[]>('/servers/localhost/zones');
-
-            const foundViews = new Set<string>(['default']);
-            zones.forEach(z => {
-                // Check if it's a marker zone
-                if (z.name.startsWith('_marker.')) {
-                    const parts = z.name.split('.');
-                    // _marker.viewname.
-                    if (parts.length >= 3) {
-                        foundViews.add(parts[1]);
-                    }
-                }
-                // Fallback: check zone suffix
-                const { view } = parseZoneId(z.name);
-                if (view) foundViews.add(view);
-            });
+            // 1. Fetch Views from dedicated endpoint
+            const { views: apiViews } = await pdns.getViews();
+            const foundViews = new Set<string>(['default', ...apiViews]);
 
             // 2. Fetch Networks
             const networksRes = await apiClient.request<Network[]>('/servers/localhost/networks');
@@ -265,21 +251,29 @@ export const Views: React.FC = () => {
         if (!newViewName) return;
         setCreating(true);
         try {
-            // Create a marker zone: _marker.<viewname>
-            const markerName = `_marker.${newViewName}.`;
-            await apiClient.request('/servers/localhost/zones', {
-                method: 'POST',
-                body: JSON.stringify({
-                    name: markerName,
-                    kind: 'Native',
-                    view: newViewName
-                })
+            // Documented way:
+            // 1. We used to create a zone variant first, but now we simplify
+            // by just using the root domain `.` as initial domain (i.e. `..<view>`)
+
+            const zoneVariantName = `..${newViewName}`;  // placeholder zone variant
+
+            // Step 1: Create Zone (SKIPPED for simplicity)
+            /*
+            await pdns.createZone({
+                name: zoneVariantName,
+                kind: 'Native',
+                nameservers: []
             });
+            */
+
+            // Step 2: Add to View
+            await pdns.createView(newViewName, zoneVariantName);
+
             setIsCreateDialogOpen(false);
             setNewViewName('');
-            fetchData();
+            await fetchData();
         } catch (err: unknown) {
-            alert('Failed to creating view: ' + (err instanceof Error ? err.message : 'Unknown error'));
+            alert('Failed to create view: ' + (err instanceof Error ? err.message : 'Unknown error'));
         } finally {
             setCreating(false);
         }
@@ -298,18 +292,32 @@ export const Views: React.FC = () => {
         if (!viewToDelete) return;
         setDeleting(true);
         try {
-            // 1. Fetch all zones to find those in this view
-            const zones = await apiClient.request<Zone[]>('/servers/localhost/zones');
-            const loopView = viewToDelete; // Capture for loop
+            const loopView = viewToDelete;
 
-            // 2. Delete associated zones
-            const zonesToDelete = zones.filter(z => z.name.endsWith(`..${loopView}`) || z.name.endsWith(`..${loopView}.`));
+            // 1. Find all zones in this view to remove them from view
+            const { zones: viewZones } = await pdns.getViewZones(loopView);
 
-            for (const zone of zonesToDelete) {
+            // 2. Remove zones from the view AND delete the zone variants
+            for (const zoneVariant of viewZones) {
                 try {
-                    await apiClient.request(`/servers/localhost/zones/${zone.name}`, { method: 'DELETE' });
+                    // zoneVariant is like "example.com..internal"
+                    // We need to extract "example.com." to remove from view
+                    // And use "example.com..internal" to delete the zone itself
+
+                    // Heuristic: Last two parts are ..viewname
+                    // Or more robust: split by `..${loopView}`
+                    const parts = zoneVariant.split(`..${loopView}`);
+                    if (parts.length > 0) {
+                        const baseName = parts[0] + (parts[0].endsWith('.') ? '' : '.');
+
+                        // Remove from view using base name
+                        await pdns.deleteViewZone(loopView, baseName);
+                    }
+
+                    // Delete the actual zone variant
+                    await pdns.deleteZone(zoneVariant);
                 } catch (e) {
-                    console.error(`Failed to delete zone ${zone.name}`, e);
+                    console.error(`Failed to remove/delete zone ${zoneVariant} from view ${loopView}`, e);
                 }
             }
 
@@ -318,27 +326,16 @@ export const Views: React.FC = () => {
             if (viewObj) {
                 for (const net of viewObj.networks) {
                     try {
-                        await apiClient.request(`/servers/localhost/networks/${net.replace(/\//g, '%2F')}`, {
+                        const encoded = net.replace(/\//g, '%2F');
+                        await apiClient.request(`/servers/localhost/networks/${encoded}`, {
                             method: 'PUT',
                             body: JSON.stringify({ view: '' })
-                        }).catch(async () => {
-                            const encoded = net.replace(/\//g, '%2F');
-                            await apiClient.request(`/servers/localhost/networks/${encoded}`, {
-                                method: 'PUT',
-                                body: JSON.stringify({ view: '' })
-                            });
                         });
                     } catch (e) {
                         console.error(`Failed to unmap network ${net}`, e);
                     }
                 }
             }
-
-            // 4. Delete marker zone
-            const markerName = `_marker.${loopView}.`;
-            await apiClient.request(`/servers/localhost/zones/${markerName}`, {
-                method: 'DELETE'
-            });
 
             // Also remove URL from local storage?
             const newUrls = { ...viewUrls };
@@ -487,7 +484,7 @@ export const Views: React.FC = () => {
                 <ModalHeader>
                     <ModalTitle>Create New View</ModalTitle>
                 </ModalHeader>
-                <ModalContent>
+                <ModalContent className="space-y-4">
                     <Input
                         label="View Name"
                         value={newViewName}
@@ -498,7 +495,7 @@ export const Views: React.FC = () => {
                         data-testid="view-name-input"
                     />
                     <p className="text-xs text-muted-foreground mt-2">
-                        Creating a view will create a special marker zone <code>_marker.&lt;name&gt;</code>.
+                        Creating a view requires at least one zone. We will automatically add the root zone `.` (i.e. `..&lt;view&gt;`) to initialize the view.
                     </p>
                 </ModalContent>
                 <ModalFooter>
@@ -514,7 +511,7 @@ export const Views: React.FC = () => {
                 onClose={() => setViewToDelete(null)}
                 onConfirm={confirmDeleteView}
                 title={`Delete View "${viewToDelete}"`}
-                description="Are you sure you want to delete this view? This will NOT delete the zones assigned to it, but only the view marker. Zones will revert to default view if not reassigned."
+                description="Are you sure you want to delete this view? This will delete all associated zone variants."
                 loading={deleting}
             />
         </div>

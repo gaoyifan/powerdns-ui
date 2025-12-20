@@ -15,8 +15,11 @@ export const useDomainRecords = (domainName: string | undefined) => {
         setLoading(true);
         setError(null);
         try {
-            // 1. Fetch ALL zones to discover which views this domain exists in
-            const allZones = await pdns.getZones();
+            // 1. Fetch ALL zones and views
+            const [allZones, viewsRes] = await Promise.all([
+                pdns.getZones(),
+                pdns.getViews().catch(() => ({ views: [] }))
+            ]);
 
             // 2. Identify relevant zones for this domain
             const relevantZones = allZones.filter(z => {
@@ -24,12 +27,8 @@ export const useDomainRecords = (domainName: string | undefined) => {
                 return parsed.name === domainName || parsed.name === domainName + '.';
             });
 
-            // 3. Find ALL system views to populate the dropdown
-            const foundViews = new Set<string>(['default']);
-            allZones.forEach(z => {
-                const { view } = parseZoneId(z.name);
-                if (view && view !== 'default') foundViews.add(view);
-            });
+            // 3. Set available views from API
+            const foundViews = new Set<string>(['default', ...(viewsRes.views || [])]);
             setAvailableViews(Array.from(foundViews).sort());
 
             // 4. Fetch Details for each relevant zone to get records

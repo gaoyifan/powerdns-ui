@@ -43,9 +43,13 @@ export const zoneService = {
         await pdns.createZone({
             name: targetZoneId,
             kind: 'Native',
-            nameservers: nameservers,
-            view: view !== 'default' ? view : undefined
+            nameservers: nameservers
         });
+
+        // If specific view, add it to the view
+        if (view !== 'default') {
+            await pdns.createView(view, targetZoneId);
+        }
 
         return targetZoneId;
     },

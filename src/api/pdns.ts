@@ -43,5 +43,32 @@ export const pdns = {
     // Views
     getViews: async () => {
         return apiClient.request<{ views: string[] }>('/servers/localhost/views');
+    },
+
+    getViewZones: async (view: string) => {
+        return apiClient.request<{ zones: string[] }>(`/servers/localhost/views/${view}`);
+    },
+
+    /**
+     * Add a zone variant to a view
+     * @param view View name
+     * @param zoneVariantName Full variant name (e.g. "example.com..trusted")
+     */
+    createView: async (view: string, zoneVariantName: string) => {
+        return apiClient.request(`/servers/localhost/views/${view}`, {
+            method: 'POST',
+            body: JSON.stringify({ name: zoneVariantName })
+        });
+    },
+
+    /**
+     * Remove a zone from a view
+     * @param view View name
+     * @param zoneName Base zone name (e.g. "example.com.")
+     */
+    deleteViewZone: async (view: string, zoneName: string) => {
+        return apiClient.request(`/servers/localhost/views/${view}/${zoneName}`, {
+            method: 'DELETE'
+        });
     }
 };

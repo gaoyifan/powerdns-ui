@@ -139,7 +139,7 @@ describe('DomainDetails Page (Live API)', () => {
         await user.click(editBtn);
 
         const inputs = screen.getAllByRole('textbox');
-        const contentInput = inputs[inputs.length - 1]; // Content is last textbox
+        const contentInput = inputs[2]; // 0: Search, 1: Name, 2: Content, 3: Comment
 
         await user.clear(contentInput);
         await user.type(contentInput, '10.10.10.10');

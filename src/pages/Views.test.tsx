@@ -21,11 +21,11 @@ describe('Views Page (Live API)', () => {
         initialViewName = `view-init-${Date.now()}`;
         try {
             await pdns.createZone({
-                name: `_marker.${initialViewName}.`,
+                name: `init.${initialViewName}..${initialViewName}`,
                 kind: 'Native',
-                nameservers: [],
-                view: initialViewName // This creates the view implicitly in v5 when zone has view or it's a marker
+                nameservers: []
             });
+            await pdns.createView(initialViewName, `init.${initialViewName}..${initialViewName}`);
             createdViews.push(initialViewName);
         } catch (e) {
             console.error(e);
@@ -35,8 +35,17 @@ describe('Views Page (Live API)', () => {
     afterAll(async () => {
         for (const view of createdViews) {
             try {
-                // To delete a view, typically we delete the marker zone
-                await pdns.deleteZone(`_marker.${view}.`);
+                const { zones } = await pdns.getViewZones(view);
+                for (const zoneVariant of zones) {
+                    // Cleanup zone variant from view, then delete zone
+                    // Heuristic: remove `..${view}` suffix, ensuring trailing dot
+                    const suffix = `..${view}`;
+                    if (zoneVariant.endsWith(suffix)) {
+                        const baseName = zoneVariant.slice(0, -suffix.length) + '.';
+                        await pdns.deleteViewZone(view, baseName).catch(() => { });
+                    }
+                    await pdns.deleteZone(zoneVariant).catch(() => { });
+                }
             } catch (e) {
                 // ignore
             }
@@ -45,12 +54,14 @@ describe('Views Page (Live API)', () => {
 
     const createTestView = async (prefix: string) => {
         const viewName = `${prefix}-${Date.now()}`;
+        const zoneName = `test.${viewName}..${viewName}`;
+
         await pdns.createZone({
-            name: `_marker.${viewName}.`,
+            name: zoneName,
             kind: 'Native',
-            nameservers: [],
-            view: viewName
+            nameservers: []
         });
+        await pdns.createView(viewName, zoneName);
         createdViews.push(viewName);
         return viewName;
     };
@@ -95,14 +106,14 @@ describe('Views Page (Live API)', () => {
         const input = await screen.findByTestId('view-name-input');
         await user.type(input, newViewName);
 
+
         await user.click(screen.getByTestId('submit-create-view-btn'));
 
         await waitFor(async () => {
             expect(screen.getByText(newViewName)).toBeInTheDocument();
             // Verify backend
-            const zones = await pdns.getZones();
-            const marker = zones.find(z => z.name === `_marker.${newViewName}.`);
-            expect(marker).toBeDefined();
+            const { views } = await pdns.getViews();
+            expect(views).toContain(newViewName);
         });
         createdViews.push(newViewName);
     });
