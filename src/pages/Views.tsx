@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { List, Network as NetworkIcon, ChevronDown, ChevronUp, Save, Plus, Trash2 } from 'lucide-react';
-import { apiClient } from '../api/client';
 import { pdns } from '../api/pdns';
 import { cn } from '../lib/utils';
 import { Button, Card, Flash, Input, Modal, ModalHeader, ModalTitle, ModalContent, ModalFooter, Loading, EmptyState, DeleteConfirmationModal } from '../components';
@@ -32,23 +31,28 @@ export const Views: React.FC = () => {
 
     // URL State
     const [viewUrls, setViewUrls] = useState<Record<string, string>>({});
+    const [viewOrders, setViewOrders] = useState<Record<string, number>>({});
     const [updatingAll, setUpdatingAll] = useState(false);
 
     useEffect(() => {
-        const saved = localStorage.getItem('view_urls');
-        if (saved) {
-            try {
-                setViewUrls(JSON.parse(saved));
-            } catch (e) {
-                console.error('Failed to parse saved view URLs', e);
-            }
-        }
+        const savedUrls = localStorage.getItem('view_urls');
+        if (savedUrls) setViewUrls(JSON.parse(savedUrls));
+
+        const savedOrders = localStorage.getItem('view_orders');
+        if (savedOrders) setViewOrders(JSON.parse(savedOrders));
     }, []);
 
     const updateViewUrl = (viewName: string, url: string) => {
         const newUrls = { ...viewUrls, [viewName]: url };
         setViewUrls(newUrls);
         localStorage.setItem('view_urls', JSON.stringify(newUrls));
+    };
+
+    const updateViewOrder = (viewName: string, order: string) => {
+        const num = parseInt(order, 10) || 0;
+        const newOrders = { ...viewOrders, [viewName]: num };
+        setViewOrders(newOrders);
+        localStorage.setItem('view_orders', JSON.stringify(newOrders));
     };
 
     const fetchData = async () => {
@@ -60,8 +64,8 @@ export const Views: React.FC = () => {
             const foundViews = new Set<string>(['default', ...apiViews]);
 
             // 2. Fetch Networks
-            const networksRes = await apiClient.request<Network[]>('/servers/localhost/networks');
-            const allNetworks = Array.isArray(networksRes) ? networksRes : (networksRes as { networks: Network[] }).networks || [];
+            const networksRes = await pdns.getNetworks();
+            const allNetworks = Array.isArray(networksRes) ? networksRes : (networksRes as any).networks || [];
 
             const viewList = Array.from(foundViews)
                 .sort((a, b) => {
@@ -71,7 +75,7 @@ export const Views: React.FC = () => {
                 })
                 .map(v => ({
                     name: v,
-                    networks: allNetworks.filter(n => (n.view || 'default') === v).map(n => n.network)
+                    networks: allNetworks.filter((n: Network) => (n.view || 'default') === v).map((n: Network) => n.network)
                 }));
 
             setViews(viewList);
@@ -105,10 +109,7 @@ export const Views: React.FC = () => {
         // Removals
         for (const net of toRemove) {
             try {
-                await apiClient.request(`/servers/localhost/networks/${net}`, {
-                    method: 'PUT',
-                    body: JSON.stringify({ view: '' })
-                });
+                await pdns.updateNetwork(net, '');
             } catch (e: any) {
                 console.error(`Failed to unmap network ${net}`, e);
             }
@@ -117,10 +118,7 @@ export const Views: React.FC = () => {
         // Additions
         for (const net of toAdd) {
             try {
-                await apiClient.request(`/servers/localhost/networks/${net}`, {
-                    method: 'PUT',
-                    body: JSON.stringify({ view: viewName })
-                });
+                await pdns.updateNetwork(net, viewName);
             } catch (e: any) {
                 console.error(`Failed to add network ${net}`, e);
                 throw new Error(`Failed to add ${net}: ${(e as Error).message}`);
@@ -178,38 +176,52 @@ export const Views: React.FC = () => {
     };
 
     const handleUpdateAll = async () => {
-        if (!confirm('This will fetch network lists from saved URLs for all views and overwrite their current mappings. Continue?')) {
+        if (!confirm('This will fetch network lists from saved URLs and sync mappings. Order determines priority. Continue?')) {
             return;
         }
         setUpdatingAll(true);
         try {
-            let successCount = 0;
-            let failCount = 0;
+            // 1. Collect desired mappings from all URLs (respecting order)
+            const managedViews = views.filter(v => v.name !== 'default' && viewUrls[v.name]);
+            managedViews.sort((a, b) => (viewOrders[a.name] || 0) - (viewOrders[b.name] || 0));
 
-            for (const view of views) {
-                if (view.name === 'default') continue;
-                const url = viewUrls[view.name];
-                if (!url) continue;
-
+            const desiredMappings: Record<string, string> = {};
+            for (const view of managedViews) {
                 try {
-                    const newNetworks = await fetchUrlContent(url);
-                    const currentNetworks = view.networks;
-
-                    // Optimization: check if identical?
-                    const sortedCurrent = [...currentNetworks].sort().join(',');
-                    const sortedNew = [...newNetworks].sort().join(',');
-                    if (sortedCurrent !== sortedNew) {
-                        await applyNetworkChanges(view.name, currentNetworks, newNetworks);
+                    const networks = await fetchUrlContent(viewUrls[view.name]);
+                    for (const net of networks) {
+                        desiredMappings[net] = view.name;
                     }
-                    successCount++;
                 } catch (e) {
-                    console.error(`Failed to update view ${view.name}`, e);
-                    failCount++;
+                    console.error(`Failed to fetch for view ${view.name}`, e);
+                }
+            }
+
+            // 2. Apply all desired mappings
+            for (const [netCode, targetView] of Object.entries(desiredMappings)) {
+                await pdns.updateNetwork(netCode, targetView);
+            }
+
+            // 3. Cleanup Orphan Networks (mappings to non-existent views)
+            const [viewsRes, networksRes] = await Promise.all([
+                pdns.getViews(),
+                pdns.getNetworks()
+            ]);
+
+            const apiViews = viewsRes.views || [];
+            const validViews = new Set(['default', ...apiViews]);
+            const currentNetworks = Array.isArray(networksRes) ? networksRes : (networksRes as { networks: Network[] }).networks || [];
+
+            for (const net of currentNetworks) {
+                const currentView = net.view || '';
+                // An orphan is any network mapped to a view that no longer exists
+                if (currentView && !validViews.has(currentView)) {
+                    await pdns.updateNetwork(net.network, '');
                 }
             }
 
             await fetchData();
-            alert(`Update All Complete.\nSuccess: ${successCount}\nFailed: ${failCount}`);
+            alert('Update All Complete.');
 
         } catch (e) {
             alert('Update All Failed: ' + (e as Error).message);
@@ -286,21 +298,23 @@ export const Views: React.FC = () => {
             if (viewObj) {
                 for (const net of viewObj.networks) {
                     try {
-                        await apiClient.request(`/servers/localhost/networks/${net}`, {
-                            method: 'PUT',
-                            body: JSON.stringify({ view: '' })
-                        });
+                        await pdns.updateNetwork(net, '');
                     } catch (e: any) {
                         console.error(`Failed to unmap network ${net}`, e);
                     }
                 }
             }
 
-            // Also remove URL from local storage?
+            // Also remove URL and Order from local storage
             const newUrls = { ...viewUrls };
             delete newUrls[loopView];
             setViewUrls(newUrls);
             localStorage.setItem('view_urls', JSON.stringify(newUrls));
+
+            const newOrders = { ...viewOrders };
+            delete newOrders[loopView];
+            setViewOrders(newOrders);
+            localStorage.setItem('view_orders', JSON.stringify(newOrders));
 
             await fetchData();
             setViewToDelete(null);
@@ -385,12 +399,23 @@ export const Views: React.FC = () => {
                                 <div className="mt-4 space-y-4">
                                     {/* URL Fetcher */}
                                     <div className="flex items-end gap-2 bg-muted/30 p-3 rounded-lg border border-border/50">
-                                        <div className="flex-1">
+                                        <div className="flex-[3]">
                                             <Input
                                                 label="Source URL (Auto-updates with 'Update All')"
                                                 placeholder="https://example.com/networks.txt"
                                                 value={viewUrls[view.name] || ''}
                                                 onChange={e => updateViewUrl(view.name, e.target.value)}
+                                                className="bg-background"
+                                                block
+                                            />
+                                        </div>
+                                        <div className="w-24">
+                                            <Input
+                                                label="Order"
+                                                type="number"
+                                                placeholder="0"
+                                                value={viewOrders[view.name]?.toString() ?? '0'}
+                                                onChange={e => updateViewOrder(view.name, e.target.value)}
                                                 className="bg-background"
                                                 block
                                             />
@@ -473,6 +498,6 @@ export const Views: React.FC = () => {
                 description="Are you sure you want to delete this view? This will delete all associated zone variants."
                 loading={deleting}
             />
-        </div>
+        </div >
     );
 };

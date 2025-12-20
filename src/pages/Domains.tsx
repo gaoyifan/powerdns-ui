@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Globe, ExternalLink, Activity, Server, Layers, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { apiClient } from '../api/client';
+import { pdns } from '../api/pdns';
 import { useZones } from '../hooks/useZones';
 import { formatUptime } from '../utils/formatUtils';
 import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Flash, Modal, ModalHeader, ModalTitle, ModalContent, ModalFooter, Input, Select, Badge, StatsCard, Loading, EmptyState, DeleteConfirmationModal } from '../components';
@@ -30,13 +30,10 @@ export const Domains: React.FC = () => {
             let zoneId = newZoneName;
             if (!zoneId.endsWith('.')) zoneId += '.';
 
-            await apiClient.request('/servers/localhost/zones', {
-                method: 'POST',
-                body: JSON.stringify({
-                    name: zoneId,
-                    kind: newZoneType,
-                    nameservers: []
-                })
+            await pdns.createZone({
+                name: zoneId,
+                kind: newZoneType as 'Native' | 'Master' | 'Slave',
+                nameservers: []
             });
 
             setNewZoneName('');
@@ -59,9 +56,7 @@ export const Domains: React.FC = () => {
         if (!zoneToDelete) return;
         setDeleting(true);
         try {
-            await Promise.all(zoneToDelete.ids.map(id =>
-                apiClient.request(`/servers/localhost/zones/${id}`, { method: 'DELETE' })
-            ));
+            await Promise.all(zoneToDelete.ids.map(id => pdns.deleteZone(id)));
             refetch();
             setZoneToDelete(null);
         } catch (err) {

@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { Zone, RRSet, Server, StatisticItem } from '../types/api';
+import type { Zone, RRSet, Server, StatisticItem, Network } from '../types/api';
 
 export const pdns = {
     // Server
@@ -20,7 +20,7 @@ export const pdns = {
         return apiClient.request<{ rrsets: RRSet[] } & Zone>(`/servers/localhost/zones/${zoneId}`);
     },
 
-    createZone: async (zone: { name: string; kind: 'Native'; nameservers: string[]; view?: string }) => {
+    createZone: async (zone: { name: string; kind: 'Native' | 'Master' | 'Slave'; nameservers: string[]; view?: string }) => {
         return apiClient.request('/servers/localhost/zones', {
             method: 'POST',
             body: JSON.stringify(zone)
@@ -61,14 +61,21 @@ export const pdns = {
         });
     },
 
-    /**
-     * Remove a zone from a view
-     * @param view View name
-     * @param zoneName Base zone name (e.g. "example.com.")
-     */
     deleteViewZone: async (view: string, zoneName: string) => {
         return apiClient.request(`/servers/localhost/views/${view}/${zoneName}`, {
             method: 'DELETE'
+        });
+    },
+
+    // Networks
+    getNetworks: async () => {
+        return apiClient.request<Network[]>('/servers/localhost/networks');
+    },
+
+    updateNetwork: async (cidr: string, view: string) => {
+        return apiClient.request(`/servers/localhost/networks/${cidr}`, {
+            method: 'PUT',
+            body: JSON.stringify({ view })
         });
     }
 };
