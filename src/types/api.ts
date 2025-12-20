@@ -30,11 +30,6 @@ export interface RRSet {
     content: string;
     disabled: boolean;
   }[];
-  comments?: {
-    content: string;
-    account: string;
-    modified_at: number;
-  }[];
 }
 
 export interface View {

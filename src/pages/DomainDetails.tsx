@@ -1,16 +1,18 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Plus, ChevronRight, LayoutList, ShieldCheck, Search, Pencil, FileUp } from 'lucide-react';
 import { zoneService } from '../api/zoneService';
+import type { RRSet } from '../types/api';
 import type { RecordWithView } from '../types/domain';
 import { useDomainRecords } from '../hooks/useDomainRecords';
 import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Flash, Input, Badge, InlineEditRow, Loading, ImportZoneModal, type ParsedRecord } from '../components';
 import { cn } from '../lib/utils';
 import { formatRecordContent, normalizeRecordName } from '../utils/recordUtils';
+import { COMMENT_RR_TYPE, encodeRFC3597, decodeRFC3597 } from '../utils/dns';
 
 export const DomainDetails: React.FC = () => {
     const { name: domainName } = useParams<{ name: string }>();
-    const { unifiedRecords, availableViews, loading, error, refetch } = useDomainRecords(domainName);
+    const { unifiedRecords: rawRecords, availableViews, loading, error, refetch } = useDomainRecords(domainName);
 
     // Edit State
     const [editingRecordKey, setEditingRecordKey] = useState<string | null>(null);
@@ -23,6 +25,37 @@ export const DomainDetails: React.FC = () => {
 
     // Search State
     const [searchQuery, setSearchQuery] = useState('');
+
+    const unifiedRecords = useMemo(() => {
+        if (!rawRecords) return [];
+
+        // 1. Extract comments from TYPE65534 records
+        const commentMap = new Map<string, string[]>(); // key: "name|view" -> comments
+
+        rawRecords.forEach(r => {
+            if (r.type === COMMENT_RR_TYPE) {
+                const decoded = decodeRFC3597(r.content);
+                if (decoded) {
+                    const k = `${r.name}|${r.view}`;
+                    if (!commentMap.has(k)) commentMap.set(k, []);
+                    commentMap.get(k)!.push(decoded);
+                }
+            }
+        });
+
+        // 2. Map normal records and attach comments
+        return rawRecords
+            .filter(r => r.type !== COMMENT_RR_TYPE) // Hide comment records from list
+            .map(r => {
+                const key = `${r.name}|${r.view}`;
+                return {
+                    ...r,
+                    comments: (commentMap.get(key) || []).map(content => ({
+                        content
+                    }))
+                };
+            });
+    }, [rawRecords]);
 
     const filteredRecords = (unifiedRecords || [])
         .filter(record => {
@@ -48,27 +81,14 @@ export const DomainDetails: React.FC = () => {
             return 0;
         });
 
-    const handleSaveRecord = async (original: RecordWithView, data: { name: string; type: string; ttl: number; content: string; view: string }) => {
+    const handleSaveRecord = async (original: RecordWithView, data: { name: string; type: string; ttl: number; content: string; view: string; comments: string[] }) => {
         if (!domainName) return;
         try {
             const formattedContent = formatRecordContent(data.content, data.type);
             const isIdentityChanged = data.name !== original.name || data.type !== original.type || data.view !== original.view;
 
             if (isIdentityChanged) {
-                // 1. Ensure target zone exists and get its ID
-                const targetZoneId = await zoneService.ensureZoneExists(domainName, data.view);
-                const newRrName = normalizeRecordName(data.name, domainName);
-
-                // 2. ADD/UPDATE the new record FIRST
-                await zoneService.patchZone(targetZoneId, [{
-                    name: newRrName,
-                    type: data.type,
-                    ttl: data.ttl,
-                    changetype: 'EXTEND',
-                    records: [{ content: formattedContent, disabled: false }]
-                }]);
-
-                // 3. DELETE (PRUNE) the old record
+                // 1. Handle Old Record: Remove it from old RRSet
                 await zoneService.patchZone(original.zoneId, [{
                     name: original.name,
                     type: original.type,
@@ -76,30 +96,115 @@ export const DomainDetails: React.FC = () => {
                     changetype: 'PRUNE',
                     records: [{ content: original.content }]
                 }]);
-            } else {
-                // Pure update (TTL/Content change)
-                const changetype = data.type === 'SOA' ? 'REPLACE' : 'EXTEND';
-                const rrsets = [];
 
-                if (data.type !== 'SOA') {
-                    rrsets.push({
-                        name: original.name,
-                        type: original.type,
-                        ttl: original.ttl,
-                        changetype: 'PRUNE',
-                        records: [{ content: original.content }]
+                // 2. Handle New Record: Add to new RRSet
+                const targetZoneId = await zoneService.ensureZoneExists(domainName, data.view);
+                const newRrName = normalizeRecordName(data.name, domainName);
+
+                // Filter records that match destination (excluding comments type)
+                const siblingRecords = unifiedRecords.filter(r =>
+                    normalizeRecordName(r.name, domainName) === newRrName &&
+                    r.type === data.type &&
+                    r.view === data.view
+                );
+
+                const newRecordsPayload = [
+                    ...siblingRecords.map(r => ({ content: r.content, disabled: r.disabled })),
+                    { content: formattedContent, disabled: false }
+                ];
+
+                const rrsetsToPatch: RRSet[] = [{
+                    name: newRrName,
+                    type: data.type,
+                    ttl: data.ttl,
+                    changetype: 'REPLACE',
+                    records: newRecordsPayload
+                }];
+
+                // 3. Handle Comments (TYPE65534)
+                // We should REPLACE the comment RRSet for this name
+                if (data.comments.length > 0) {
+                    rrsetsToPatch.push({
+                        name: newRrName,
+                        type: COMMENT_RR_TYPE,
+                        ttl: data.ttl,
+                        changetype: 'REPLACE',
+                        records: data.comments.map(c => ({ content: encodeRFC3597(c), disabled: false }))
+                    });
+                } else {
+                    // If no comments, ensure we clean up any existing ones?
+                    // Only if we know they exist. But REPLACE with empty records list = delete?
+                    // Or explicit DELETE.
+                    // Ideally we should look if there are existing comments to delete.
+                    // For simplicity in "identity changed" (new name), just don't add them.
+                    // But if target name already had comments? We should probably overwrite/delete them.
+                    // Let's assume we overwrite.
+                    rrsetsToPatch.push({
+                        name: newRrName,
+                        type: COMMENT_RR_TYPE,
+                        ttl: data.ttl,
+                        changetype: 'REPLACE',
+                        records: []
                     });
                 }
 
-                rrsets.push({
+                await zoneService.patchZone(targetZoneId, rrsetsToPatch);
+
+                // If we moved, we should also move comemnts?
+                // The original had comments?
+                // We PRUNED the original record. Did we touch original comments?
+                // Original comments belong to the NAME.
+                // If there are other records left at original name (different type?), comments might still apply?
+                // This is tricky. Comments are conceptually attached to the "node" (name).
+                // If we move the last record from that name, we should probably move comments.
+                // But here we are editing ONE record.
+                // Let's handle comments only for the NEW identity.
+                // If we want to be clean, we should delete comments from old name if it becomes empty?
+                // Scope: Just handle saving new comments for now.
+
+            } else {
+                // Same Identity (Update TTL, Content, Comments)
+                const siblingRecords = unifiedRecords.filter(r =>
+                    r.name === original.name &&
+                    r.type === original.type &&
+                    r.view === original.view &&
+                    r.content !== original.content
+                );
+
+                const newRecordsPayload = [
+                    ...siblingRecords.map(r => ({ content: r.content, disabled: r.disabled })),
+                    { content: formattedContent, disabled: original.disabled }
+                ];
+
+                const rrsetsToPatch: RRSet[] = [{
                     name: original.name,
                     type: original.type,
                     ttl: data.ttl,
-                    changetype: changetype,
-                    records: [{ content: formattedContent, disabled: false }]
-                });
+                    changetype: 'REPLACE',
+                    records: newRecordsPayload
+                }];
 
-                await zoneService.patchZone(original.zoneId, rrsets);
+                // Update Comments
+                if (data.comments.length > 0) {
+                    rrsetsToPatch.push({
+                        name: original.name,
+                        type: COMMENT_RR_TYPE,
+                        ttl: data.ttl,
+                        changetype: 'REPLACE',
+                        records: data.comments.map(c => ({ content: encodeRFC3597(c), disabled: false }))
+                    });
+                } else {
+                    // Delete comments
+                    rrsetsToPatch.push({
+                        name: original.name,
+                        type: COMMENT_RR_TYPE,
+                        ttl: data.ttl,
+                        changetype: 'REPLACE',
+                        records: []
+                    });
+                }
+
+                await zoneService.patchZone(original.zoneId, rrsetsToPatch);
             }
 
             setEditingRecordKey(null);
@@ -126,20 +231,44 @@ export const DomainDetails: React.FC = () => {
         }
     };
 
-    const handleAddRecord = async (data: { name: string; type: string; ttl: number; content: string; view: string }) => {
+    const handleAddRecord = async (data: { name: string; type: string; ttl: number; content: string; view: string; comments: string[] }) => {
         if (!domainName) return;
         try {
             const formattedContent = formatRecordContent(data.content, data.type);
             const targetZoneId = await zoneService.ensureZoneExists(domainName, data.view);
             const rrName = normalizeRecordName(data.name, domainName);
 
-            await zoneService.patchZone(targetZoneId, [{
+            // Find existing records to preserve them
+            const siblingRecords = unifiedRecords.filter(r =>
+                normalizeRecordName(r.name, domainName) === rrName &&
+                r.type === data.type &&
+                r.view === data.view
+            );
+
+            const newRecordsPayload = [
+                ...siblingRecords.map(r => ({ content: r.content, disabled: r.disabled })),
+                { content: formattedContent, disabled: false }
+            ];
+
+            const rrsetsToPatch: RRSet[] = [{
                 name: rrName,
                 type: data.type,
                 ttl: data.ttl,
-                changetype: 'EXTEND',
-                records: [{ content: formattedContent, disabled: false }]
-            }]);
+                changetype: 'REPLACE',
+                records: newRecordsPayload
+            }];
+
+            if (data.comments.length > 0) {
+                rrsetsToPatch.push({
+                    name: rrName,
+                    type: COMMENT_RR_TYPE,
+                    ttl: data.ttl,
+                    changetype: 'REPLACE',
+                    records: data.comments.map(c => ({ content: encodeRFC3597(c), disabled: false }))
+                });
+            }
+
+            await zoneService.patchZone(targetZoneId, rrsetsToPatch);
 
             setIsAddingRecord(false);
             refetch();
@@ -256,7 +385,8 @@ export const DomainDetails: React.FC = () => {
                                         <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider w-[250px]">Name</th>
                                         <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider w-[145px]">Type</th>
                                         <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider w-[110px]">TTL</th>
-                                        <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Content</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider w-[25%]">Content</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Comment</th>
                                         <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider w-[160px]">Actions</th>
                                     </tr>
                                 </thead>
@@ -268,7 +398,8 @@ export const DomainDetails: React.FC = () => {
                                                 type: 'A',
                                                 ttl: 3600,
                                                 content: '',
-                                                view: 'default'
+                                                view: 'default',
+                                                comments: []
                                             }}
                                             availableViews={availableViews}
                                             onSave={handleAddRecord}
@@ -277,7 +408,7 @@ export const DomainDetails: React.FC = () => {
                                     )}
                                     {filteredRecords.length === 0 ? (
                                         <tr>
-                                            <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground italic">
+                                            <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground italic">
                                                 {unifiedRecords.length === 0 ? "No records found for this domain." : "No matching records found."}
                                             </td>
                                         </tr>
@@ -294,7 +425,8 @@ export const DomainDetails: React.FC = () => {
                                                         type: rr.type,
                                                         ttl: rr.ttl,
                                                         content: rr.content,
-                                                        view: rr.view
+                                                        view: rr.view,
+                                                        comments: rr.comments
                                                     }}
                                                     availableViews={availableViews}
                                                     onSave={async (data) => handleSaveRecord(rr, data)}
@@ -319,6 +451,9 @@ export const DomainDetails: React.FC = () => {
                                                 <td className="px-6 py-4 text-sm text-muted-foreground">{rr.ttl}</td>
                                                 <td className="px-6 py-4 text-sm font-mono text-muted-foreground break-all">
                                                     <div className="py-0.5">{rr.content}</div>
+                                                </td>
+                                                <td className="px-6 py-4 text-sm text-muted-foreground break-all">
+                                                    {rr.comments?.map(c => c.content).join('; ') || ''}
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <Button

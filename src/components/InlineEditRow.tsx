@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Button, Input, Select, DeleteConfirmationModal } from '../components';
 import { Save, Trash2, X } from 'lucide-react';
+import type { Comment } from '../types/domain';
 
 interface InlineEditRowProps {
     record: {
@@ -10,9 +11,10 @@ interface InlineEditRowProps {
         content: string;
         view: string;
         disabled?: boolean;
+        comments?: Comment[];
     };
     availableViews: string[];
-    onSave: (data: { name: string; type: string; ttl: number; content: string; view: string }) => Promise<void>;
+    onSave: (data: { name: string; type: string; ttl: number; content: string; view: string; comments: string[] }) => Promise<void>;
     onDelete?: () => Promise<void>;
     onCancel: () => void;
 }
@@ -23,6 +25,7 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
     const [view, setView] = useState(record.view);
     const [ttl, setTtl] = useState(record.ttl);
     const [content, setContent] = useState(record.content);
+    const [comment, setComment] = useState((record.comments || []).map(c => c.content).join('; '));
     const [saving, setSaving] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -30,7 +33,9 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
     const handleSave = async () => {
         setSaving(true);
         try {
-            await onSave({ name, type, ttl, content, view });
+            // Split by semicolon and trim to get array of comments
+            const commentsList = comment.split(';').map(c => c.trim()).filter(c => c.length > 0);
+            await onSave({ name, type, ttl, content, view, comments: commentsList });
         } finally {
             setSaving(false);
         }
@@ -131,6 +136,19 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
                         }}
                     />
                 )}
+            </td>
+            <td className="px-6 py-4 align-top">
+                <Input
+                    value={comment}
+                    onChange={e => setComment(e.target.value)}
+                    placeholder="Comments..."
+                    className="h-9 w-full"
+                    block
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleSave();
+                        if (e.key === 'Escape') onCancel();
+                    }}
+                />
             </td>
             <td className="px-6 py-4 align-top">
                 <div className="flex items-center gap-1">

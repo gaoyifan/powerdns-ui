@@ -45,7 +45,8 @@ export const useDomainRecords = (domainName: string | undefined) => {
                             content: record.content,
                             disabled: record.disabled,
                             view: view,
-                            zoneId: zone.id
+                            zoneId: zone.id,
+                            comments: []
                         }))
                     );
                 } catch (e) {

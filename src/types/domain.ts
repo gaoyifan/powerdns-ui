@@ -1,4 +1,8 @@
 
+export interface Comment {
+    content: string;
+}
+
 export interface RecordWithView {
     name: string;
     type: string;
@@ -7,6 +11,7 @@ export interface RecordWithView {
     disabled: boolean;
     view: string;
     zoneId: string; // The specific API zone ID (e.g. example.com..testview)
+    comments: Comment[];
 }
 
 export interface UnifiedZone {
