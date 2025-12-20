@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Plus, ChevronRight, LayoutList, ShieldCheck, Search, Pencil, FileUp } from 'lucide-react';
-import { apiClient } from '../api/client';
+import { zoneService } from '../api/zoneService';
 import type { RecordWithView } from '../types/domain';
 import { useDomainRecords } from '../hooks/useDomainRecords';
 import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Flash, Input, Badge, InlineEditRow, Loading, ImportZoneModal, type ParsedRecord } from '../components';
 import { cn } from '../lib/utils';
+import { formatRecordContent, normalizeRecordName } from '../utils/recordUtils';
 
 export const DomainDetails: React.FC = () => {
     const { name: domainName } = useParams<{ name: string }>();
@@ -14,15 +15,6 @@ export const DomainDetails: React.FC = () => {
     // Edit State
     const [editingRecordKey, setEditingRecordKey] = useState<string | null>(null);
 
-    const formatRecordContent = (content: string, type: string) => {
-        if (type === 'TXT' || type === 'SPF') {
-            const trimmed = content.trim();
-            if (trimmed.length > 0 && !trimmed.startsWith('"')) {
-                return `"${trimmed.replace(/"/g, '\\"')}"`;
-            }
-        }
-        return content;
-    };
 
 
     // Record Creation State
@@ -57,125 +49,57 @@ export const DomainDetails: React.FC = () => {
         });
 
     const handleSaveRecord = async (original: RecordWithView, data: { name: string; type: string; ttl: number; content: string; view: string }) => {
+        if (!domainName) return;
         try {
-            const nameChanged = data.name !== original.name;
-            const typeChanged = data.type !== original.type;
-            const viewChanged = data.view !== original.view;
-
             const formattedContent = formatRecordContent(data.content, data.type);
+            const isIdentityChanged = data.name !== original.name || data.type !== original.type || data.view !== original.view;
 
-            if (nameChanged || typeChanged || viewChanged) {
-                // Determine target zone ID
-                let targetZoneId = domainName || '';
-                if (!targetZoneId.endsWith('.')) targetZoneId += '.';
-                if (data.view !== 'default') {
-                    const baseName = targetZoneId.slice(0, -1);
-                    targetZoneId = `${baseName}..${data.view}`;
-                }
+            if (isIdentityChanged) {
+                // 1. Ensure target zone exists and get its ID
+                const targetZoneId = await zoneService.ensureZoneExists(domainName, data.view);
+                const newRrName = normalizeRecordName(data.name, domainName);
 
-                // Ensure target zone exists
-                let zoneExists = false;
-                try {
-                    await apiClient.request(`/servers/localhost/zones/${targetZoneId}`);
-                    zoneExists = true;
-                } catch (e) { /* ignore 404 */ }
+                // 2. ADD/UPDATE the new record FIRST
+                await zoneService.patchZone(targetZoneId, [{
+                    name: newRrName,
+                    type: data.type,
+                    ttl: data.ttl,
+                    changetype: 'EXTEND',
+                    records: [{ content: formattedContent, disabled: false }]
+                }]);
 
-                if (!zoneExists) {
-                    await apiClient.request('/servers/localhost/zones', {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            name: targetZoneId,
-                            kind: 'Native',
-                            nameservers: ['ns1.localhost.'],
-                            view: data.view !== 'default' ? data.view : undefined
-                        })
-                    });
-                }
-
-                // Format record name correctly
-                let newRrName = data.name;
-                if (!newRrName.endsWith('.')) newRrName += '.';
-
-                // 1. ADD/UPDATE the new record FIRST
-                await apiClient.request(`/servers/localhost/zones/${targetZoneId}`, {
-                    method: 'PATCH',
-                    body: JSON.stringify({
-                        rrsets: [{
-                            name: newRrName,
-                            type: data.type,
-                            ttl: data.ttl,
-                            changetype: 'EXTEND',
-                            records: [{
-                                content: formattedContent,
-                                disabled: false
-                            }]
-                        }]
-                    })
-                });
-
-                // 2. DELETE (PRUNE) the old record ONLY IF the add was successful
-                await apiClient.request(`/servers/localhost/zones/${original.zoneId}`, {
-                    method: 'PATCH',
-                    body: JSON.stringify({
-                        rrsets: [{
-                            name: original.name,
-                            type: original.type,
-                            ttl: original.ttl,
-                            changetype: 'PRUNE',
-                            records: [{
-                                content: original.content
-                            }]
-                        }]
-                    })
-                });
+                // 3. DELETE (PRUNE) the old record
+                await zoneService.patchZone(original.zoneId, [{
+                    name: original.name,
+                    type: original.type,
+                    ttl: original.ttl,
+                    changetype: 'PRUNE',
+                    records: [{ content: original.content }]
+                }]);
             } else {
                 // Pure update (TTL/Content change)
-                if (data.type === 'SOA') {
-                    // For SOA, we should always use REPLACE to ensure there's only one
-                    await apiClient.request(`/servers/localhost/zones/${original.zoneId}`, {
-                        method: 'PATCH',
-                        body: JSON.stringify({
-                            rrsets: [{
-                                name: original.name,
-                                type: original.type,
-                                ttl: data.ttl,
-                                changetype: 'REPLACE',
-                                records: [{
-                                    content: formattedContent,
-                                    disabled: false
-                                }]
-                            }]
-                        })
-                    });
-                } else {
-                    // Use a single PATCH with PRUNE and EXTEND for other record types
-                    await apiClient.request(`/servers/localhost/zones/${original.zoneId}`, {
-                        method: 'PATCH',
-                        body: JSON.stringify({
-                            rrsets: [
-                                {
-                                    name: original.name,
-                                    type: original.type,
-                                    ttl: original.ttl,
-                                    changetype: 'PRUNE',
-                                    records: [{
-                                        content: original.content
-                                    }]
-                                },
-                                {
-                                    name: original.name,
-                                    type: original.type,
-                                    ttl: data.ttl,
-                                    changetype: 'EXTEND',
-                                    records: [{
-                                        content: formattedContent,
-                                        disabled: false
-                                    }]
-                                }
-                            ]
-                        })
+                const changetype = data.type === 'SOA' ? 'REPLACE' : 'EXTEND';
+                const rrsets = [];
+
+                if (data.type !== 'SOA') {
+                    rrsets.push({
+                        name: original.name,
+                        type: original.type,
+                        ttl: original.ttl,
+                        changetype: 'PRUNE',
+                        records: [{ content: original.content }]
                     });
                 }
+
+                rrsets.push({
+                    name: original.name,
+                    type: original.type,
+                    ttl: data.ttl,
+                    changetype: changetype,
+                    records: [{ content: formattedContent, disabled: false }]
+                });
+
+                await zoneService.patchZone(original.zoneId, rrsets);
             }
 
             setEditingRecordKey(null);
@@ -188,20 +112,13 @@ export const DomainDetails: React.FC = () => {
 
     const handleDeleteRecord = async (record: RecordWithView) => {
         try {
-            await apiClient.request(`/servers/localhost/zones/${record.zoneId}`, {
-                method: 'PATCH',
-                body: JSON.stringify({
-                    rrsets: [{
-                        name: record.name,
-                        type: record.type,
-                        ttl: record.ttl,
-                        changetype: 'PRUNE',
-                        records: [{
-                            content: record.content
-                        }]
-                    }]
-                })
-            });
+            await zoneService.patchZone(record.zoneId, [{
+                name: record.name,
+                type: record.type,
+                ttl: record.ttl,
+                changetype: 'PRUNE',
+                records: [{ content: record.content }]
+            }]);
             setEditingRecordKey(null);
             refetch();
         } catch (err: unknown) {
@@ -213,58 +130,16 @@ export const DomainDetails: React.FC = () => {
         if (!domainName) return;
         try {
             const formattedContent = formatRecordContent(data.content, data.type);
+            const targetZoneId = await zoneService.ensureZoneExists(domainName, data.view);
+            const rrName = normalizeRecordName(data.name, domainName);
 
-            // Construct target Zone ID based on selected view
-            let targetZoneId = domainName;
-            if (!targetZoneId.endsWith('.')) targetZoneId += '.';
-
-            if (data.view !== 'default') {
-                const baseName = targetZoneId.slice(0, -1);
-                targetZoneId = `${baseName}..${data.view}`;
-            }
-
-            // Check if zone exists, if not create it
-            let zoneExists = false;
-            try {
-                await apiClient.request(`/servers/localhost/zones/${targetZoneId}`);
-                zoneExists = true;
-            } catch (e) { /* Ignore 404 */ }
-
-            if (!zoneExists) {
-                await apiClient.request('/servers/localhost/zones', {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        name: targetZoneId,
-                        kind: 'Native',
-                        nameservers: ['ns1.localhost.'],
-                        view: data.view !== 'default' ? data.view : undefined
-                    })
-                });
-            }
-
-            // Normalize record name
-            let rrName = data.name;
-            if (rrName === '@' || rrName === '') rrName = domainName;
-            else if (!rrName.endsWith(domainName) && !rrName.endsWith(domainName + '.')) {
-                rrName += '.' + domainName;
-            }
-            if (!rrName.endsWith('.')) rrName += '.';
-
-            await apiClient.request(`/servers/localhost/zones/${targetZoneId}`, {
-                method: 'PATCH',
-                body: JSON.stringify({
-                    rrsets: [{
-                        name: rrName,
-                        type: data.type,
-                        ttl: data.ttl,
-                        changetype: 'EXTEND',
-                        records: [{
-                            content: formattedContent,
-                            disabled: false
-                        }]
-                    }]
-                })
-            });
+            await zoneService.patchZone(targetZoneId, [{
+                name: rrName,
+                type: data.type,
+                ttl: data.ttl,
+                changetype: 'EXTEND',
+                records: [{ content: formattedContent, disabled: false }]
+            }]);
 
             setIsAddingRecord(false);
             refetch();
@@ -275,61 +150,36 @@ export const DomainDetails: React.FC = () => {
 
     const handleImportRecords = async (records: ParsedRecord[], view: string) => {
         if (!domainName) return;
-
-        const rrsetsMap: Record<string, { name: string, type: string, ttl: number, records: { content: string, disabled: boolean }[] }> = {};
-
-        records.forEach(r => {
-            const key = `${r.name}-${r.type}`;
-            if (!rrsetsMap[key]) {
-                rrsetsMap[key] = {
-                    name: r.name,
-                    type: r.type,
-                    ttl: r.ttl,
-                    records: []
-                };
-            }
-            rrsetsMap[key].records.push({
-                content: formatRecordContent(r.content, r.type),
-                disabled: false
-            });
-        });
-
-        let targetZoneId = domainName;
-        if (!targetZoneId.endsWith('.')) targetZoneId += '.';
-        if (view !== 'default') {
-            const baseName = targetZoneId.slice(0, -1);
-            targetZoneId = `${baseName}..${view}`;
-        }
-
-        let zoneExists = false;
         try {
-            await apiClient.request(`/servers/localhost/zones/${targetZoneId}`);
-            zoneExists = true;
-        } catch (e) { /* ignore 404 */ }
+            const rrsetsMap: Record<string, { name: string, type: string, ttl: number, records: { content: string, disabled: boolean }[] }> = {};
 
-        if (!zoneExists) {
-            await apiClient.request('/servers/localhost/zones', {
-                method: 'POST',
-                body: JSON.stringify({
-                    name: targetZoneId,
-                    kind: 'Native',
-                    nameservers: ['ns1.localhost.'],
-                    view: view !== 'default' ? view : undefined
-                })
+            records.forEach(r => {
+                const key = `${r.name}-${r.type}`;
+                if (!rrsetsMap[key]) {
+                    rrsetsMap[key] = {
+                        name: r.name,
+                        type: r.type,
+                        ttl: r.ttl,
+                        records: []
+                    };
+                }
+                rrsetsMap[key].records.push({
+                    content: formatRecordContent(r.content, r.type),
+                    disabled: false
+                });
             });
+
+            const targetZoneId = await zoneService.ensureZoneExists(domainName, view);
+
+            await zoneService.patchZone(targetZoneId, Object.values(rrsetsMap).map(rrset => ({
+                ...rrset,
+                changetype: 'EXTEND'
+            })));
+
+            refetch();
+        } catch (err: unknown) {
+            alert('Failed to import records: ' + (err instanceof Error ? err.message : 'Unknown error'));
         }
-
-        await apiClient.request(`/servers/localhost/zones/${targetZoneId}`, {
-            method: 'PATCH',
-            body: JSON.stringify({
-                rrsets: Object.values(rrsetsMap).map(rrset => ({
-                    ...rrset,
-                    changetype: 'EXTEND'
-                }))
-            })
-        });
-
-        refetch();
     };
 
     return (
