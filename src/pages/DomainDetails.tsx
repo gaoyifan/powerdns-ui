@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Plus, ChevronRight, LayoutList, ShieldCheck, Search, Pencil, FileUp } from 'lucide-react';
+import { Plus, ChevronRight, LayoutList, ShieldCheck, Search, Pencil, FileUp, Eye, EyeOff } from 'lucide-react';
 import { zoneService } from '../api/zoneService';
 import type { RRSet } from '../types/api';
 import type { RecordWithView } from '../types/domain';
@@ -214,6 +214,37 @@ export const DomainDetails: React.FC = () => {
         }
     };
 
+
+    const handleToggleDisabled = async (record: RecordWithView) => {
+        try {
+            // Find sibling records in the same RRSet
+            const siblingRecords = unifiedRecords.filter(r =>
+                r.name === record.name &&
+                r.type === record.type &&
+                r.view === record.view &&
+                r.content !== record.content
+            );
+
+            // Construct new records payload with the toggled state
+            const newRecordsPayload = [
+                ...siblingRecords.map(r => ({ content: r.content, disabled: r.disabled })),
+                { content: record.content, disabled: !record.disabled }
+            ];
+
+            const rrset: RRSet = {
+                name: record.name,
+                type: record.type,
+                ttl: record.ttl,
+                changetype: 'REPLACE',
+                records: newRecordsPayload
+            };
+
+            await zoneService.patchZone(record.zoneId, [rrset]);
+            refetch();
+        } catch (err: unknown) {
+            alert(`Failed to ${record.disabled ? 'enable' : 'disable'} record: ` + (err instanceof Error ? err.message : 'Unknown error'));
+        }
+    };
 
     const handleDeleteRecord = async (record: RecordWithView) => {
         try {
@@ -439,12 +470,27 @@ export const DomainDetails: React.FC = () => {
                                         return (
                                             <tr key={uniqueKey} className={cn(
                                                 "hover:bg-accent/40 transition-colors group",
-                                                rr.type === 'SOA' && "bg-primary/[0.03] dark:bg-primary/10"
+                                                rr.type === 'SOA' && "bg-primary/[0.03] dark:bg-primary/10",
+                                                rr.disabled && "opacity-60 grayscale-[0.5]"
                                             )}>
                                                 <td className="px-6 py-4">
                                                     <Badge variant={rr.view === 'default' ? 'secondary' : 'default'}>{rr.view}</Badge>
                                                 </td>
-                                                <td className="px-6 py-4 text-sm font-medium">{rr.name}</td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={cn(
+                                                            "text-sm",
+                                                            rr.disabled ? "text-muted-foreground line-through" : "text-foreground font-medium"
+                                                        )}>
+                                                            {rr.name}
+                                                        </span>
+                                                        {rr.disabled && (
+                                                            <Badge variant="outline" className="text-[10px] h-4 px-1 uppercase tracking-wider bg-muted text-muted-foreground border-muted-foreground/30">
+                                                                Disabled
+                                                            </Badge>
+                                                        )}
+                                                    </div>
+                                                </td>
                                                 <td className="px-6 py-4">
                                                     <Badge variant="outline" className="bg-background">{rr.type}</Badge>
                                                 </td>
@@ -456,16 +502,27 @@ export const DomainDetails: React.FC = () => {
                                                     {rr.comments?.map(c => c.content).join('; ') || ''}
                                                 </td>
                                                 <td className="px-6 py-4">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="size-8 text-muted-foreground hover:text-foreground"
-                                                        onClick={() => setEditingRecordKey(uniqueKey)}
-                                                        title="Edit Record"
-                                                        data-testid="edit-record-btn"
-                                                    >
-                                                        <Pencil className="size-4" />
-                                                    </Button>
+                                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="size-8 text-muted-foreground hover:text-foreground"
+                                                            onClick={() => handleToggleDisabled(rr)}
+                                                            title={rr.disabled ? "Enable Record" : "Disable Record"}
+                                                        >
+                                                            {rr.disabled ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="size-8 text-muted-foreground hover:text-foreground"
+                                                            onClick={() => setEditingRecordKey(uniqueKey)}
+                                                            title="Edit Record"
+                                                            data-testid="edit-record-btn"
+                                                        >
+                                                            <Pencil className="size-4" />
+                                                        </Button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         );
