@@ -20,12 +20,7 @@ describe('Views Page (Live API)', () => {
         // Create an initial view for read tests
         initialViewName = `view-init-${Date.now()}`;
         try {
-            await pdns.createZone({
-                name: `init.${initialViewName}..${initialViewName}`,
-                kind: 'Native',
-                nameservers: []
-            });
-            await pdns.createView(initialViewName, `init.${initialViewName}..${initialViewName}`);
+            await pdns.createView(initialViewName, `..${initialViewName}`);
             createdViews.push(initialViewName);
         } catch (e) {
             console.error(e);
@@ -36,15 +31,9 @@ describe('Views Page (Live API)', () => {
         for (const view of createdViews) {
             try {
                 const { zones } = await pdns.getViewZones(view);
-                for (const zoneVariant of zones) {
-                    // Cleanup zone variant from view, then delete zone
-                    // Heuristic: remove `..${view}` suffix, ensuring trailing dot
-                    const suffix = `..${view}`;
-                    if (zoneVariant.endsWith(suffix)) {
-                        const baseName = zoneVariant.slice(0, -suffix.length) + '.';
-                        await pdns.deleteViewZone(view, baseName).catch(() => { });
-                    }
-                    await pdns.deleteZone(zoneVariant).catch(() => { });
+                for (const zoneName of zones) {
+                    await pdns.deleteViewZone(view, zoneName).catch(() => { });
+                    await pdns.deleteZone(zoneName).catch(() => { });
                 }
             } catch (e) {
                 // ignore
@@ -54,13 +43,8 @@ describe('Views Page (Live API)', () => {
 
     const createTestView = async (prefix: string) => {
         const viewName = `${prefix}-${Date.now()}`;
-        const zoneName = `test.${viewName}..${viewName}`;
+        const zoneName = `..${viewName}`;
 
-        await pdns.createZone({
-            name: zoneName,
-            kind: 'Native',
-            nameservers: []
-        });
         await pdns.createView(viewName, zoneName);
         createdViews.push(viewName);
         return viewName;

@@ -104,55 +104,26 @@ export const Views: React.FC = () => {
         // Execute changes
         // Removals
         for (const net of toRemove) {
-            // Unmap: set view to empty string
-            // Try unencoded first, then encoded if 404
             try {
                 await apiClient.request(`/servers/localhost/networks/${net}`, {
                     method: 'PUT',
                     body: JSON.stringify({ view: '' })
                 });
             } catch (e: any) {
-                if (e.status === 404) {
-                    const encoded = net.replace(/\//g, '%2F');
-                    try {
-                        await apiClient.request(`/servers/localhost/networks/${encoded}`, {
-                            method: 'PUT',
-                            body: JSON.stringify({ view: '' })
-                        });
-                    } catch (e2) {
-                        console.error(`Failed to unmap network ${net} (encoded)`, e2);
-                    }
-                } else {
-                    console.error(`Failed to unmap network ${net}`, e);
-                }
+                console.error(`Failed to unmap network ${net}`, e);
             }
         }
 
         // Additions
         for (const net of toAdd) {
             try {
-                // Try 1: Unencoded (let browser handle slash)
                 await apiClient.request(`/servers/localhost/networks/${net}`, {
                     method: 'PUT',
                     body: JSON.stringify({ view: viewName })
                 });
             } catch (e: any) {
-                if (e.status === 404) {
-                    // Try 2: Encoded slash
-                    const encoded = net.replace(/\//g, '%2F');
-                    try {
-                        await apiClient.request(`/servers/localhost/networks/${encoded}`, {
-                            method: 'PUT',
-                            body: JSON.stringify({ view: viewName })
-                        });
-                    } catch (e2) {
-                        console.error(`Failed to add network ${net} (encoded)`, e2);
-                        throw new Error(`Failed to add ${net}: ${(e2 as Error).message}`);
-                    }
-                } else {
-                    console.error(`Failed to add network ${net}`, e);
-                    throw new Error(`Failed to add ${net}: ${(e as Error).message}`);
-                }
+                console.error(`Failed to add network ${net}`, e);
+                throw new Error(`Failed to add ${net}: ${(e as Error).message}`);
             }
         }
     };
@@ -298,27 +269,17 @@ export const Views: React.FC = () => {
             const { zones: viewZones } = await pdns.getViewZones(loopView);
 
             // 2. Remove zones from the view AND delete the zone variants
-            for (const zoneVariant of viewZones) {
-                try {
-                    // zoneVariant is like "example.com..internal"
-                    // We need to extract "example.com." to remove from view
-                    // And use "example.com..internal" to delete the zone itself
+            for (const zoneName of viewZones) {
+                // Documentation says we should remove from view.
+                // "Listing the zones of a view" returns the names to be used.
+                await pdns.deleteViewZone(loopView, zoneName).catch((e) => {
+                    console.error(`Failed to remove zone ${zoneName} from view ${loopView}`, e);
+                });
 
-                    // Heuristic: Last two parts are ..viewname
-                    // Or more robust: split by `..${loopView}`
-                    const parts = zoneVariant.split(`..${loopView}`);
-                    if (parts.length > 0) {
-                        const baseName = parts[0] + (parts[0].endsWith('.') ? '' : '.');
-
-                        // Remove from view using base name
-                        await pdns.deleteViewZone(loopView, baseName);
-                    }
-
-                    // Delete the actual zone variant
-                    await pdns.deleteZone(zoneVariant);
-                } catch (e) {
-                    console.error(`Failed to remove/delete zone ${zoneVariant} from view ${loopView}`, e);
-                }
+                // Then try to delete the zone itself (if it exists)
+                await pdns.deleteZone(zoneName).catch((e) => {
+                    console.error(`Failed to delete zone ${zoneName}`, e);
+                });
             }
 
             // 3. Unmap associated networks
@@ -326,12 +287,11 @@ export const Views: React.FC = () => {
             if (viewObj) {
                 for (const net of viewObj.networks) {
                     try {
-                        const encoded = net.replace(/\//g, '%2F');
-                        await apiClient.request(`/servers/localhost/networks/${encoded}`, {
+                        await apiClient.request(`/servers/localhost/networks/${net}`, {
                             method: 'PUT',
                             body: JSON.stringify({ view: '' })
                         });
-                    } catch (e) {
+                    } catch (e: any) {
                         console.error(`Failed to unmap network ${net}`, e);
                     }
                 }
