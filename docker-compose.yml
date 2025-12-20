@@ -18,6 +18,7 @@ services:
       - "--webserver-address=0.0.0.0"
       - "--webserver-allow-from=0.0.0.0/0"
       - "--webserver-port=8081"
+      - "--dname-processing=yes"
     restart: unless-stopped
 
   ui:
