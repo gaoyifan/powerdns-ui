@@ -17,8 +17,7 @@ export const pdns = {
     },
 
     getZone: async (zoneId: string) => {
-        const encodedId = encodeURIComponent(zoneId);
-        return apiClient.request<{ rrsets: RRSet[] } & Zone>(`/servers/localhost/zones/${encodedId}`);
+        return apiClient.request<{ rrsets: RRSet[] } & Zone>(`/servers/localhost/zones/${zoneId}`);
     },
 
     createZone: async (zone: { name: string; kind: 'Native'; nameservers: string[]; view?: string }) => {
@@ -29,15 +28,13 @@ export const pdns = {
     },
 
     deleteZone: async (zoneId: string) => {
-        const encodedId = encodeURIComponent(zoneId);
-        return apiClient.request(`/servers/localhost/zones/${encodedId}`, {
+        return apiClient.request(`/servers/localhost/zones/${zoneId}`, {
             method: 'DELETE'
         });
     },
 
     patchZone: async (zoneId: string, rrsets: RRSet[]) => {
-        const encodedId = encodeURIComponent(zoneId);
-        return apiClient.request(`/servers/localhost/zones/${encodedId}`, {
+        return apiClient.request(`/servers/localhost/zones/${zoneId}`, {
             method: 'PATCH',
             body: JSON.stringify({ rrsets })
         });
@@ -70,8 +67,7 @@ export const pdns = {
      * @param zoneName Base zone name (e.g. "example.com.")
      */
     deleteViewZone: async (view: string, zoneName: string) => {
-        const encodedName = encodeURIComponent(zoneName);
-        return apiClient.request(`/servers/localhost/views/${view}/${encodedName}`, {
+        return apiClient.request(`/servers/localhost/views/${view}/${zoneName}`, {
             method: 'DELETE'
         });
     }

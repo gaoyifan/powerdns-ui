@@ -31,9 +31,9 @@ describe('Views Page (Live API)', () => {
         for (const view of createdViews) {
             try {
                 const { zones } = await pdns.getViewZones(view);
-                for (const zoneName of zones) {
-                    await pdns.deleteViewZone(view, zoneName).catch(() => { });
-                    await pdns.deleteZone(zoneName).catch(() => { });
+                for (const zoneVariant of zones) {
+                    await pdns.deleteViewZone(view, zoneVariant).catch(() => { });
+                    await pdns.deleteZone(zoneVariant).catch(() => { });
                 }
             } catch (e) {
                 // ignore

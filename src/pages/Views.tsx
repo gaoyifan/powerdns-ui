@@ -269,16 +269,15 @@ export const Views: React.FC = () => {
             const { zones: viewZones } = await pdns.getViewZones(loopView);
 
             // 2. Remove zones from the view AND delete the zone variants
-            for (const zoneName of viewZones) {
-                // Documentation says we should remove from view.
-                // "Listing the zones of a view" returns the names to be used.
-                await pdns.deleteViewZone(loopView, zoneName).catch((e) => {
-                    console.error(`Failed to remove zone ${zoneName} from view ${loopView}`, e);
+            for (const zoneVariant of viewZones) {
+                // Pass the original zone variant name (e.g. "example.org..view" or "..view")
+                await pdns.deleteViewZone(loopView, zoneVariant).catch((e) => {
+                    console.error(`Failed to remove zone ${zoneVariant} from view ${loopView}`, e);
                 });
 
-                // Then try to delete the zone itself (if it exists)
-                await pdns.deleteZone(zoneName).catch((e) => {
-                    console.error(`Failed to delete zone ${zoneName}`, e);
+                // Then try to delete the actual zone variant entity (if it exists)
+                await pdns.deleteZone(zoneVariant).catch((e) => {
+                    console.error(`Failed to delete zone variant ${zoneVariant}`, e);
                 });
             }
 
