@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { List, Network as NetworkIcon, ChevronDown, ChevronUp, Save, Plus, Trash2 } from 'lucide-react';
+import { List, Network as NetworkIcon, ChevronDown, ChevronUp, Save, Plus, Trash2, Link2 } from 'lucide-react';
 import { pdns } from '../api/pdns';
 import { cn } from '../lib/utils';
-import { Button, Card, Flash, Input, Modal, ModalHeader, ModalTitle, ModalContent, ModalFooter, Loading, EmptyState, DeleteConfirmationModal } from '../components';
+import { Button, Card, Flash, Input, Modal, ModalHeader, ModalTitle, ModalContent, ModalFooter, Loading, EmptyState, DeleteConfirmationModal, Badge } from '../components';
 import type { Network } from '../types/api';
 
 interface ViewWithNetworks {
@@ -367,7 +367,20 @@ export const Views: React.FC = () => {
                                     <List className="size-5" />
                                 </div>
                                 <div>
-                                    <h3 className="font-bold text-lg">{view.name}</h3>
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="font-bold text-lg">{view.name}</h3>
+                                        {viewUrls[view.name] && (
+                                            <Badge variant="secondary" className="bg-primary/5 text-primary border-primary/20 flex items-center gap-1">
+                                                <Link2 className="size-3" />
+                                                Synced
+                                                {(viewPriorities[view.name] ?? 0) !== 0 && (
+                                                    <span className="opacity-60 ml-0.5 pl-1 border-l border-primary/20">
+                                                        {viewPriorities[view.name]}
+                                                    </span>
+                                                )}
+                                            </Badge>
+                                        )}
+                                    </div>
                                     <div className="text-sm text-muted-foreground flex items-center gap-2">
                                         <NetworkIcon className="size-3" />
                                         {view.networks.length} mapped networks
