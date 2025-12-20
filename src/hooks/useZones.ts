@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { apiClient } from '../api/client';
-import type { Zone, Server, StatisticItem } from '../types/api';
+import { pdns } from '../api/pdns';
+import type { Server, StatisticItem } from '../types/api';
 import type { UnifiedZone } from '../types/domain';
 import { parseZoneId } from '../utils/zoneUtils';
 
@@ -15,9 +15,9 @@ export const useZones = () => {
         setLoading(true);
         try {
             const [zonesRes, serverRes, statsRes] = await Promise.all([
-                apiClient.request<Zone[]>('/servers/localhost/zones'),
-                apiClient.request<Server>('/servers/localhost'),
-                apiClient.request<StatisticItem[]>('/servers/localhost/statistics').catch(() => [] as StatisticItem[])
+                pdns.getZones(),
+                pdns.getServerInfo(),
+                pdns.getStatistics().catch(() => [] as StatisticItem[])
             ]);
 
             const grouped: Record<string, UnifiedZone> = {};
@@ -29,7 +29,9 @@ export const useZones = () => {
                 if (!grouped[name]) {
                     grouped[name] = { name, views: [], ids: [] };
                 }
-                grouped[name].views.push(view);
+                if (!grouped[name].views.includes(view)) {
+                    grouped[name].views.push(view);
+                }
                 grouped[name].ids.push(zone.id);
             });
 

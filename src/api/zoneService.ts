@@ -1,4 +1,4 @@
-import { apiClient } from './client';
+import { pdns } from './pdns';
 
 export const zoneService = {
     getZoneId: (domainName: string, view: string) => {
@@ -17,7 +17,7 @@ export const zoneService = {
 
         // Check if zone exists
         try {
-            await apiClient.request(`/servers/localhost/zones/${targetZoneId}`);
+            await pdns.getZone(targetZoneId);
             return targetZoneId;
         } catch (e: any) {
             if (e.status !== 404) throw e;
@@ -27,7 +27,7 @@ export const zoneService = {
         let nameservers: string[] = []; // Default fallback
         try {
             const defaultZoneId = zoneService.getZoneId(domainName, 'default');
-            const defaultZone = await apiClient.request<{ rrsets: any[] }>(`/servers/localhost/zones/${defaultZoneId}`);
+            const defaultZone = await pdns.getZone(defaultZoneId);
 
             // Look for NS records in the rrsets
             const nsRrset = (defaultZone.rrsets || []).find(r => r.type === 'NS');
@@ -40,23 +40,17 @@ export const zoneService = {
         }
 
         // Create if not exists
-        await apiClient.request('/servers/localhost/zones', {
-            method: 'POST',
-            body: JSON.stringify({
-                name: targetZoneId,
-                kind: 'Native',
-                nameservers: nameservers,
-                view: view !== 'default' ? view : undefined
-            })
+        await pdns.createZone({
+            name: targetZoneId,
+            kind: 'Native',
+            nameservers: nameservers,
+            view: view !== 'default' ? view : undefined
         });
 
         return targetZoneId;
     },
 
     patchZone: async (zoneId: string, rrsets: any[]) => {
-        return apiClient.request(`/servers/localhost/zones/${zoneId}`, {
-            method: 'PATCH',
-            body: JSON.stringify({ rrsets })
-        });
+        return pdns.patchZone(zoneId, rrsets);
     }
 };

@@ -12,8 +12,16 @@ export class ApiError extends Error {
 const isHtml = (text: string) => text.includes('<!doctype html>') || text.includes('<html>');
 
 export const apiClient = {
+    configure: (config: { apiKey?: string; baseUrl?: string }) => {
+        if (config.apiKey) localStorage.setItem(STORAGE_KEYS.API_KEY, config.apiKey);
+        if (config.baseUrl) {
+            (apiClient as any)._baseUrl = config.baseUrl;
+        }
+    },
+
     request: async <T>(endpoint: string, options: RequestInit = {}): Promise<T> => {
         const apiKey = localStorage.getItem(STORAGE_KEYS.API_KEY);
+        const baseUrl = (apiClient as any)._baseUrl || API_BASE_URL;
 
         if (!apiKey) {
             throw new Error('No API key found');
@@ -25,7 +33,7 @@ export const apiClient = {
             ...options.headers,
         };
 
-        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        const response = await fetch(`${baseUrl}${endpoint}`, {
             ...options,
             cache: 'no-store',
             headers,
@@ -50,6 +58,7 @@ export const apiClient = {
                 }
             } else {
                 const errorText = await response.text();
+                // Check if the response masquerades as HTML (e.g. from a proxy)
                 if (isHtml(errorText)) {
                     errorMessage = `API returned HTML (${response.status}) instead of JSON. Backend might be unreachable.`;
                 } else {

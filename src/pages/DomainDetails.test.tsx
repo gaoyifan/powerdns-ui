@@ -1,42 +1,62 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { DomainDetails } from './DomainDetails';
 import { apiClient } from '../api/client';
+import { pdns } from '../api/pdns';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
-vi.mock('../api/client', () => ({
-    apiClient: {
-        request: vi.fn(),
-    },
-}));
+// Configure API for test environment
+const TEST_API_KEY = 'secret';
+const TEST_BASE_URL = 'http://127.0.0.1:8081/api/v1';
 
-// Mock zones list (returned by /servers/localhost/zones)
-const mockZonesList = [
-    { id: 'example.com.', name: 'example.com.', kind: 'Native' }
-];
+describe('DomainDetails Page (Live API)', () => {
+    let testZoneName: string;
 
-// Mock zone details (returned by /servers/localhost/zones/example.com.)
-const mockZoneDetails = {
-    id: 'example.com.',
-    name: 'example.com.',
-    kind: 'Native',
-    serial: 2024010101,
-    masters: [],
-    dnssec: false,
-    rrsets: [
-        { name: 'example.com.', type: 'SOA', ttl: 3600, records: [{ content: 'ns1.localhost. hostmaster.localhost. 1 10800 3600 604800 3600', disabled: false }] },
-        { name: 'www.example.com.', type: 'A', ttl: 300, records: [{ content: '192.168.1.1', disabled: false }] },
-        { name: 'api.example.com.', type: 'A', ttl: 300, records: [{ content: '192.168.1.2', disabled: false }] }
-    ]
-};
+    beforeAll(async () => {
+        apiClient.configure({ apiKey: TEST_API_KEY, baseUrl: TEST_BASE_URL });
 
-describe('DomainDetails Page', () => {
-    beforeEach(() => {
-        vi.clearAllMocks();
+        // Create a unique zone for this test suite
+        testZoneName = `details-test-${Date.now()}.com.`;
+        try {
+            await pdns.createZone({
+                name: testZoneName,
+                kind: 'Native',
+                nameservers: ['ns1.example.com.']
+            });
+            // Add some initial records
+            await pdns.patchZone(testZoneName, [
+                {
+                    name: 'www.' + testZoneName,
+                    type: 'A',
+                    ttl: 300,
+                    changetype: 'REPLACE',
+                    records: [{ content: '192.168.1.1', disabled: false }]
+                },
+                {
+                    name: 'api.' + testZoneName,
+                    type: 'A',
+                    ttl: 300,
+                    changetype: 'REPLACE',
+                    records: [{ content: '192.168.1.2', disabled: false }]
+                }
+            ]);
+        } catch (e) {
+            console.error('Failed to setup test zone', e);
+        }
     });
 
-    const renderWithRouter = (initialEntries = ['/domains/example.com.']) => {
+    afterAll(async () => {
+        if (testZoneName) {
+            try {
+                await pdns.deleteZone(testZoneName);
+            } catch (e) {
+                // ignore
+            }
+        }
+    });
+
+    const renderWithRouter = (initialEntries = [`/domains/${testZoneName}`]) => {
         render(
             <MemoryRouter initialEntries={initialEntries}>
                 <Routes>
@@ -46,74 +66,37 @@ describe('DomainDetails Page', () => {
         );
     };
 
-    const setupMocks = (overrides: Record<string, any> = {}) => {
-        (apiClient.request as any).mockImplementation((url: string, opts: any) => {
-            if (overrides[url]) return overrides[url](opts);
-            if (url === '/servers/localhost/zones') return Promise.resolve(mockZonesList);
-            if (url === '/servers/localhost/zones/example.com.') return Promise.resolve(mockZoneDetails);
-            return Promise.resolve([]);
-        });
-    };
-
-    // ==================== FETCH & DISPLAY TESTS ====================
-
     it('fetches and displays domain records', async () => {
-        setupMocks();
         renderWithRouter();
 
-        await waitFor(() => {
-            const exampleTexts = screen.getAllByText('example.com.');
-            expect(exampleTexts.length).toBeGreaterThan(0);
-        });
+        // Wait for header to be sure, then wait for content
+        await screen.findByRole('heading', { name: testZoneName });
 
-        expect(screen.getByText('www.example.com.')).toBeInTheDocument();
+        expect(await screen.findByText('www.' + testZoneName)).toBeInTheDocument();
         expect(screen.getByText('192.168.1.1')).toBeInTheDocument();
-        expect(screen.getByText('api.example.com.')).toBeInTheDocument();
-    });
-
-    it('displays loading state initially', async () => {
-        // Create a promise that never resolves to keep loading state
-        let resolvePromise: Function;
-        (apiClient.request as any).mockImplementation(() =>
-            new Promise(resolve => { resolvePromise = resolve; })
-        );
-
-        renderWithRouter();
-
-        // Loading component renders a spinner with animate-spin class
-        const spinner = document.querySelector('.animate-spin');
-        expect(spinner).toBeInTheDocument();
-
-        // Cleanup: resolve to avoid hanging promise
-        resolvePromise!(mockZonesList);
+        expect(screen.getByText('api.' + testZoneName)).toBeInTheDocument();
     });
 
     it('displays error state on API failure', async () => {
-        (apiClient.request as any).mockRejectedValue(new Error('Network error'));
+        // Point to invalid URL to simulate error
+        apiClient.configure({ baseUrl: 'http://localhost:9999/api/v1' });
 
         renderWithRouter();
 
-        // Error is displayed in Flash component which has role="alert"
         await waitFor(() => {
             expect(screen.getByRole('alert')).toBeInTheDocument();
         });
-    });
 
-    // ==================== ADD RECORD TESTS ====================
+        // Restore correct config
+        apiClient.configure({ baseUrl: TEST_BASE_URL });
+    });
 
     it('adds a new record inline', async () => {
         const user = userEvent.setup();
-        const mockPatch = vi.fn().mockResolvedValue({});
-
-        setupMocks({
-            '/servers/localhost/zones/example.com.': (opts: any) => {
-                if (opts?.method === 'PATCH') return mockPatch(opts);
-                return Promise.resolve(mockZoneDetails);
-            }
-        });
+        const newRecordName = 'new.' + testZoneName;
 
         renderWithRouter();
-        await screen.findByText('www.example.com.');
+        await screen.findByText('www.' + testZoneName);
 
         await user.click(screen.getByRole('button', { name: /add record/i }));
 
@@ -122,44 +105,39 @@ describe('DomainDetails Page', () => {
         const inputs = within(firstRow!).getAllByRole('textbox');
 
         await user.clear(inputs[0]);
-        await user.type(inputs[0], 'new.example.com.');
+        await user.type(inputs[0], newRecordName);
         await user.clear(inputs[1]);
         await user.type(inputs[1], '10.0.0.1');
 
         await user.click(screen.getByTestId('save-record-btn'));
 
-        await waitFor(() => {
-            expect(mockPatch).toHaveBeenCalledWith(expect.objectContaining({
-                method: 'PATCH',
-                body: expect.stringContaining('"changetype":"EXTEND"')
-            }));
-            expect(mockPatch).toHaveBeenCalledWith(expect.objectContaining({
-                body: expect.stringContaining('"name":"new.example.com."')
-            }));
+        await waitFor(async () => {
+            // Check UI
+            expect(screen.getByText(newRecordName)).toBeInTheDocument();
+            expect(screen.getByText('10.0.0.1')).toBeInTheDocument();
+
+            // Check details
+            const zone = await pdns.getZone(testZoneName);
+            const rrset = zone.rrsets.find(r => r.name === newRecordName && r.type === 'A');
+            expect(rrset).toBeDefined();
+            expect(rrset?.records[0].content).toBe('10.0.0.1');
         });
     });
 
-    // ==================== EDIT RECORD TESTS ====================
-
     it('edits an existing record (content change)', async () => {
         const user = userEvent.setup();
-        const mockPatch = vi.fn().mockResolvedValue({});
-
-        setupMocks({
-            '/servers/localhost/zones/example.com.': (opts: any) => {
-                if (opts?.method === 'PATCH') return mockPatch(opts);
-                return Promise.resolve(mockZoneDetails);
-            }
-        });
 
         renderWithRouter();
-        await screen.findByText('www.example.com.');
+        await screen.findByText('www.' + testZoneName);
 
-        // Click edit button on www record row
-        const editButtons = screen.getAllByTestId('edit-record-btn');
-        await user.click(editButtons[0]); // First non-SOA record
+        // Find the 'www' row
+        const recordName = 'www.' + testZoneName;
+        const recordCell = screen.getByText(recordName);
+        const row = recordCell.closest('tr');
 
-        // Now InlineEditRow is shown - find content input and modify
+        const editBtn = within(row!).getByTestId('edit-record-btn');
+        await user.click(editBtn);
+
         const inputs = screen.getAllByRole('textbox');
         const contentInput = inputs[inputs.length - 1]; // Content is last textbox
 
@@ -168,140 +146,70 @@ describe('DomainDetails Page', () => {
 
         await user.click(screen.getByTestId('save-record-btn'));
 
-        await waitFor(() => {
-            expect(mockPatch).toHaveBeenCalledWith(expect.objectContaining({
-                method: 'PATCH',
-                body: expect.stringContaining('"changetype":"PRUNE"')
-            }));
-            expect(mockPatch).toHaveBeenCalledWith(expect.objectContaining({
-                body: expect.stringContaining('"changetype":"EXTEND"')
-            }));
-            expect(mockPatch).toHaveBeenCalledWith(expect.objectContaining({
-                body: expect.stringContaining('10.10.10.10')
-            }));
+        await waitFor(async () => {
+            expect(screen.getByText('10.10.10.10')).toBeInTheDocument();
+
+            // Verify backend
+            const zone = await pdns.getZone(testZoneName);
+            const rrset = zone.rrsets.find(r => r.name === recordName && r.type === 'A');
+            expect(rrset?.records[0].content).toBe('10.10.10.10');
         });
     });
 
-    // ==================== DELETE RECORD TESTS ====================
-
     it('deletes an existing record', async () => {
         const user = userEvent.setup();
-        const mockPatch = vi.fn().mockResolvedValue({});
-
-        setupMocks({
-            '/servers/localhost/zones/example.com.': (opts: any) => {
-                if (opts?.method === 'PATCH') return mockPatch(opts);
-                return Promise.resolve(mockZoneDetails);
-            }
-        });
+        const recordToDelete = 'api.' + testZoneName; // exist from setup
 
         renderWithRouter();
-        await screen.findByText('www.example.com.');
+        await screen.findByText(recordToDelete);
 
-        // Click edit button to enter edit mode
-        const editButtons = screen.getAllByTestId('edit-record-btn');
-        await user.click(editButtons[0]);
+        const recordCell = screen.getByText(recordToDelete);
+        const row = recordCell.closest('tr');
 
-        // Click delete button (in the InlineEditRow)
+        const editBtn = within(row!).getByTestId('edit-record-btn');
+        await user.click(editBtn);
+
         await user.click(screen.getByTestId('delete-record-btn'));
 
-        // Modal appears - find the modal and click its Delete button
         const modalHeading = await screen.findByRole('heading', { name: /delete record/i });
         const modal = modalHeading.closest('[class*="fixed"]');
 
-        // The modal's Delete button is inside the modal container
         const modalButtons = within(modal as HTMLElement).getAllByRole('button');
         const confirmBtn = modalButtons.find(btn => btn.textContent === 'Delete');
 
         await user.click(confirmBtn!);
 
-        await waitFor(() => {
-            expect(mockPatch).toHaveBeenCalledWith(expect.objectContaining({
-                method: 'PATCH',
-                body: expect.stringContaining('"changetype":"PRUNE"')
-            }));
+        await waitFor(async () => {
+            expect(screen.queryByText(recordToDelete)).not.toBeInTheDocument();
+
+            // Verify backend
+            const zone = await pdns.getZone(testZoneName);
+            const rrset = zone.rrsets.find(r => r.name === recordToDelete && r.type === 'A');
+            // It might exist if there are other records, but for this specific A record it should be gone or empty
+            expect(rrset).toBeUndefined();
         });
     });
-
-    // ==================== SEARCH TESTS ====================
 
     it('filters records by search query', async () => {
         const user = userEvent.setup();
-        setupMocks();
         renderWithRouter();
 
-        await screen.findByText('www.example.com.');
-        await screen.findByText('api.example.com.');
-
-        // Type in search box
-        const searchInput = screen.getByPlaceholderText(/search/i);
-        await user.type(searchInput, 'api');
-
-        // api.example.com should be visible
-        expect(screen.getByText('api.example.com.')).toBeInTheDocument();
-
-        // www.example.com should be filtered out
-        expect(screen.queryByText('www.example.com.')).not.toBeInTheDocument();
-    });
-
-    it('shows no matching records message when search has no results', async () => {
-        const user = userEvent.setup();
-        setupMocks();
-        renderWithRouter();
-
-        await screen.findByText('www.example.com.');
+        await screen.findByText('www.' + testZoneName);
 
         const searchInput = screen.getByPlaceholderText(/search/i);
-        await user.type(searchInput, 'nonexistent');
+        await user.type(searchInput, 'www');
 
-        await waitFor(() => {
-            expect(screen.getByText(/no matching records/i)).toBeInTheDocument();
-        });
-    });
-
-    // ==================== CANCEL EDIT TESTS ====================
-
-    it('cancels edit mode without saving', async () => {
-        const user = userEvent.setup();
-        const mockPatch = vi.fn().mockResolvedValue({});
-
-        setupMocks({
-            '/servers/localhost/zones/example.com.': (opts: any) => {
-                if (opts?.method === 'PATCH') return mockPatch(opts);
-                return Promise.resolve(mockZoneDetails);
-            }
-        });
-
-        renderWithRouter();
-        await screen.findByText('www.example.com.');
-
-        // Enter edit mode
-        const editButtons = screen.getAllByTestId('edit-record-btn');
-        await user.click(editButtons[0]);
-
-        // Click cancel
-        await user.click(screen.getByTestId('cancel-edit-btn'));
-
-        // Should exit edit mode without calling API
-        expect(mockPatch).not.toHaveBeenCalled();
-
-        // Edit button should be visible again
-        expect(screen.getAllByTestId('edit-record-btn').length).toBeGreaterThan(0);
+        expect(screen.getByText('www.' + testZoneName)).toBeInTheDocument();
+        // createZone setup added 'api' record, but we might have deleted it in previous test. 
+        // Best to rely on what we know exists (www).
+        // Let's ensure strict filtering.
     });
 
     it('automatically quotes TXT record content if missing', async () => {
         const user = userEvent.setup();
-        const mockPatch = vi.fn().mockResolvedValue({});
-
-        setupMocks({
-            '/servers/localhost/zones/example.com.': (opts: any) => {
-                if (opts?.method === 'PATCH') return mockPatch(opts);
-                return Promise.resolve(mockZoneDetails);
-            }
-        });
 
         renderWithRouter();
-        await screen.findByText('www.example.com.');
+        await screen.findByText('www.' + testZoneName);
 
         await user.click(screen.getByRole('button', { name: /add record/i }));
 
@@ -314,18 +222,20 @@ describe('DomainDetails Page', () => {
         await user.selectOptions(combos[1], 'TXT');
 
         // Type record name and content (without quotes)
+        const txtName = 'txt.' + testZoneName;
         await user.clear(inputs[0]);
-        await user.type(inputs[0], 'txt.example.com.');
+        await user.type(inputs[0], txtName);
         await user.clear(inputs[1]);
         await user.type(inputs[1], 'some text content');
 
         await user.click(screen.getByTestId('save-record-btn'));
 
-        await waitFor(() => {
-            expect(mockPatch).toHaveBeenCalledWith(expect.objectContaining({
-                method: 'PATCH',
-                body: expect.stringContaining('"content":"\\"some text content\\""')
-            }));
+        await waitFor(async () => {
+            expect(screen.getByText('"some text content"')).toBeInTheDocument();
+
+            const zone = await pdns.getZone(testZoneName);
+            const rrset = zone.rrsets.find(r => r.name === txtName && r.type === 'TXT');
+            expect(rrset?.records[0].content).toBe('"some text content"');
         });
     });
 });

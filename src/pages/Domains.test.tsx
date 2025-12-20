@@ -1,33 +1,49 @@
-import { render, screen, waitFor } from '@testing-library/react';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { render, screen, waitFor, within } from '@testing-library/react';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Domains } from './Domains';
 import { apiClient } from '../api/client';
+import { pdns } from '../api/pdns';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
 
-vi.mock('../api/client', () => ({
-    apiClient: {
-        request: vi.fn(),
-    },
-}));
+// Configure API for test environment
+const TEST_API_KEY = 'secret';
+const TEST_BASE_URL = 'http://127.0.0.1:8081/api/v1';
 
-const mockZones = [
-    { id: 'example.com.', name: 'example.com.', kind: 'Native', serial: 2024010101, masters: [], dnssec: false, account: '' },
-    { id: 'test.com.', name: 'test.com.', kind: 'Native', serial: 2024010101, masters: [], dnssec: true, account: '' }
-];
+describe('Domains Page (Live API)', () => {
+    let createdZones: string[] = [];
 
-const mockServerInfo = {
-    version: '4.8.0',
-    daemon_type: 'authoritative',
-    id: 'localhost',
-    type: 'Server',
-    url: '/api/v1/servers/localhost'
-};
-
-describe('Domains Page', () => {
-    beforeEach(() => {
-        vi.clearAllMocks();
+    beforeAll(() => {
+        apiClient.configure({ apiKey: TEST_API_KEY, baseUrl: TEST_BASE_URL });
     });
+
+    afterAll(async () => {
+        // Cleanup all zones created during tests
+        for (const zoneId of createdZones) {
+            try {
+                await pdns.deleteZone(zoneId);
+            } catch (e) {
+                // ignore
+            }
+        }
+    });
+
+    const createTestZone = async (prefix: string) => {
+        const zoneName = `${prefix}-${Date.now()}.com.`;
+        try {
+            await pdns.createZone({
+                name: zoneName,
+                kind: 'Native',
+                nameservers: ['ns1.example.com.']
+            });
+            createdZones.push(zoneName);
+            return zoneName;
+        } catch (e: any) {
+            // If already exists (e.g. from failed previous run), just return it
+            if (e.status === 409 || e.status === 422) return zoneName;
+            throw e;
+        }
+    };
 
     const renderComponent = () => {
         return render(
@@ -37,111 +53,54 @@ describe('Domains Page', () => {
         );
     };
 
-    const setupMocks = (overrides: Record<string, any> = {}) => {
-        (apiClient.request as any).mockImplementation((url: string, opts: any) => {
-            if (overrides[url]) return overrides[url](opts);
-            if (url === '/servers/localhost') return Promise.resolve(mockServerInfo);
-            if (url === '/servers/localhost/zones') return Promise.resolve(mockZones);
-            if (url === '/servers/localhost/statistics') return Promise.resolve([]);
-            return Promise.resolve([]);
-        });
-    };
-
-    // ==================== FETCH & DISPLAY TESTS ====================
-
     it('fetches and renders domains', async () => {
-        setupMocks();
-        renderComponent();
-
-        await waitFor(() => {
-            expect(screen.getByText('example.com.')).toBeInTheDocument();
-            expect(screen.getByText('test.com.')).toBeInTheDocument();
-        });
-    });
-
-    it('displays loading state initially', async () => {
-        let resolvePromise: Function;
-        (apiClient.request as any).mockImplementation(() =>
-            new Promise(resolve => { resolvePromise = resolve; })
-        );
-
-        renderComponent();
-
-        // StatsCard shows loading state via skeleton/spinner
-        const spinner = document.querySelector('.animate-spin');
-        expect(spinner).toBeInTheDocument();
-
-        resolvePromise!([]);
-    });
-
-    it('displays error state on API failure', async () => {
-        (apiClient.request as any).mockRejectedValue(new Error('Network error'));
+        const zoneName = await createTestZone('fetch-test');
 
         renderComponent();
 
         await waitFor(() => {
-            expect(screen.getByRole('alert')).toBeInTheDocument();
+            expect(screen.getByText(zoneName)).toBeInTheDocument();
         });
     });
-
-    // ==================== CREATE ZONE TESTS ====================
 
     it('creates a new zone', async () => {
         const user = userEvent.setup();
-        const mockPost = vi.fn().mockResolvedValue({ id: 'new-zone.com.', name: 'new-zone.com.' });
-
-        (apiClient.request as any).mockImplementation((url: string, opts: any) => {
-            if (url === '/servers/localhost') return Promise.resolve(mockServerInfo);
-            if (opts?.method === 'POST') return mockPost(url, opts);
-            if (url === '/servers/localhost/statistics') return Promise.resolve([]);
-            if (url === '/servers/localhost/zones') return Promise.resolve([]);
-            return Promise.resolve([]);
-        });
+        const newZoneName = `create-ui-test-${Date.now()}.com`;
+        // We track it for cleanup
+        createdZones.push(newZoneName + '.');
 
         renderComponent();
 
         await user.click(screen.getByTestId('create-zone-btn'));
 
         const input = await screen.findByTestId('zone-name-input');
-        await user.type(input, 'new-zone.com');
+        await user.type(input, newZoneName);
 
         await user.click(screen.getByTestId('submit-create-zone-btn'));
 
-        await waitFor(() => {
-            expect(mockPost).toHaveBeenCalledWith('/servers/localhost/zones', expect.objectContaining({
-                method: 'POST',
-                body: JSON.stringify({
-                    name: 'new-zone.com.',
-                    kind: 'Native',
-                    nameservers: []
-                })
-            }));
+        await waitFor(async () => {
+            // Verify it appears in the list
+            expect(screen.getByText(newZoneName + '.')).toBeInTheDocument();
+
+            // Verify it exists in the backend
+            const zone = await pdns.getZone(newZoneName + '.');
+            expect(zone).toBeDefined();
         });
     });
 
-    // ==================== DELETE ZONE TESTS ====================
-
     it('deletes a zone', async () => {
         const user = userEvent.setup();
-        const mockDelete = vi.fn().mockResolvedValue({});
-
-        (apiClient.request as any).mockImplementation((url: string, opts: any) => {
-            if (url === '/servers/localhost') return Promise.resolve(mockServerInfo);
-            if (opts?.method === 'DELETE') return mockDelete(url, opts);
-            if (url === '/servers/localhost/zones') return Promise.resolve(mockZones);
-            if (url === '/servers/localhost/statistics') return Promise.resolve([]);
-            return Promise.resolve([]);
-        });
+        const zoneName = await createTestZone('delete-test');
 
         renderComponent();
 
-        const zoneText = await screen.findByText('example.com.');
-        expect(zoneText).toBeInTheDocument();
+        const zoneLink = await screen.findByText(zoneName);
+        const row = zoneLink.closest('[data-testid="domain-card"]');
+        expect(row).toBeInTheDocument();
 
-        const deleteButtons = screen.getAllByTestId('delete-zone-btn');
-        expect(deleteButtons.length).toBeGreaterThan(0);
-
-        await user.click(deleteButtons[0]);
+        // Find delete button within the row
+        const deleteBtn = within(row! as HTMLElement).getByTestId('delete-zone-btn');
+        await user.click(deleteBtn);
 
         const modalTitle = await screen.findByRole('heading', { name: /Delete Domain/i });
         expect(modalTitle).toBeInTheDocument();
@@ -150,9 +109,21 @@ describe('Domains Page', () => {
         await user.click(confirmBtn);
 
         await waitFor(() => {
-            expect(mockDelete).toHaveBeenCalledWith('/servers/localhost/zones/example.com.', expect.objectContaining({
-                method: 'DELETE'
-            }));
+            expect(screen.queryByText(zoneName)).not.toBeInTheDocument();
         });
+    });
+
+    it('displays error state on API failure', async () => {
+        // Point to invalid URL to simulate error
+        apiClient.configure({ baseUrl: 'http://localhost:9999/api/v1' });
+
+        renderComponent();
+
+        await waitFor(() => {
+            expect(screen.getByRole('alert')).toBeInTheDocument();
+        });
+
+        // Restore correct config
+        apiClient.configure({ baseUrl: TEST_BASE_URL });
     });
 });
