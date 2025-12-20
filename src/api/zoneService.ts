@@ -23,13 +23,29 @@ export const zoneService = {
             if (e.status !== 404) throw e;
         }
 
+        // Fetch nameservers from default view to maintain consistency
+        let nameservers: string[] = []; // Default fallback
+        try {
+            const defaultZoneId = zoneService.getZoneId(domainName, 'default');
+            const defaultZone = await apiClient.request<{ rrsets: any[] }>(`/servers/localhost/zones/${defaultZoneId}`);
+
+            // Look for NS records in the rrsets
+            const nsRrset = (defaultZone.rrsets || []).find(r => r.type === 'NS');
+            if (nsRrset && nsRrset.records && nsRrset.records.length > 0) {
+                nameservers = nsRrset.records.map((r: any) => r.content);
+            }
+        } catch (e) {
+            // If default zone fetch fails or no NS records, use empty fallback
+            console.warn(`Could not fetch default zone nameservers for ${domainName}, using empty fallback.`, e);
+        }
+
         // Create if not exists
         await apiClient.request('/servers/localhost/zones', {
             method: 'POST',
             body: JSON.stringify({
                 name: targetZoneId,
                 kind: 'Native',
-                nameservers: ['ns1.localhost.'],
+                nameservers: nameservers,
                 view: view !== 'default' ? view : undefined
             })
         });
