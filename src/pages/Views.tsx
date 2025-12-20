@@ -31,15 +31,15 @@ export const Views: React.FC = () => {
 
     // URL State
     const [viewUrls, setViewUrls] = useState<Record<string, string>>({});
-    const [viewOrders, setViewOrders] = useState<Record<string, number>>({});
+    const [viewPriorities, setViewPriorities] = useState<Record<string, number>>({});
     const [updatingAll, setUpdatingAll] = useState(false);
 
     useEffect(() => {
         const savedUrls = localStorage.getItem('view_urls');
         if (savedUrls) setViewUrls(JSON.parse(savedUrls));
 
-        const savedOrders = localStorage.getItem('view_orders');
-        if (savedOrders) setViewOrders(JSON.parse(savedOrders));
+        const savedPriorities = localStorage.getItem('view_priorities');
+        if (savedPriorities) setViewPriorities(JSON.parse(savedPriorities));
     }, []);
 
     const updateViewUrl = (viewName: string, url: string) => {
@@ -48,11 +48,11 @@ export const Views: React.FC = () => {
         localStorage.setItem('view_urls', JSON.stringify(newUrls));
     };
 
-    const updateViewOrder = (viewName: string, order: string) => {
-        const num = parseInt(order, 10) || 0;
-        const newOrders = { ...viewOrders, [viewName]: num };
-        setViewOrders(newOrders);
-        localStorage.setItem('view_orders', JSON.stringify(newOrders));
+    const updateViewPriority = (viewName: string, priority: string) => {
+        const num = parseInt(priority, 10) || 0;
+        const newPriorities = { ...viewPriorities, [viewName]: num };
+        setViewPriorities(newPriorities);
+        localStorage.setItem('view_priorities', JSON.stringify(newPriorities));
     };
 
     const fetchData = async () => {
@@ -176,14 +176,14 @@ export const Views: React.FC = () => {
     };
 
     const handleUpdateAll = async () => {
-        if (!confirm('This will fetch network lists from saved URLs and sync mappings. Order determines priority. Continue?')) {
+        if (!confirm('This will fetch network lists from saved URLs and sync mappings. Priority determines override order. Continue?')) {
             return;
         }
         setUpdatingAll(true);
         try {
-            // 1. Collect desired mappings from all URLs (respecting order)
+            // 1. Collect desired mappings from all URLs (respecting priority)
             const managedViews = views.filter(v => v.name !== 'default' && viewUrls[v.name]);
-            managedViews.sort((a, b) => (viewOrders[a.name] || 0) - (viewOrders[b.name] || 0));
+            managedViews.sort((a, b) => (viewPriorities[a.name] || 0) - (viewPriorities[b.name] || 0));
 
             const desiredMappings: Record<string, string> = {};
             for (const view of managedViews) {
@@ -311,10 +311,10 @@ export const Views: React.FC = () => {
             setViewUrls(newUrls);
             localStorage.setItem('view_urls', JSON.stringify(newUrls));
 
-            const newOrders = { ...viewOrders };
-            delete newOrders[loopView];
-            setViewOrders(newOrders);
-            localStorage.setItem('view_orders', JSON.stringify(newOrders));
+            const newPriorities = { ...viewPriorities };
+            delete newPriorities[loopView];
+            setViewPriorities(newPriorities);
+            localStorage.setItem('view_priorities', JSON.stringify(newPriorities));
 
             await fetchData();
             setViewToDelete(null);
@@ -411,11 +411,11 @@ export const Views: React.FC = () => {
                                         </div>
                                         <div className="w-24">
                                             <Input
-                                                label="Order"
+                                                label="Priority"
                                                 type="number"
                                                 placeholder="0"
-                                                value={viewOrders[view.name]?.toString() ?? '0'}
-                                                onChange={e => updateViewOrder(view.name, e.target.value)}
+                                                value={viewPriorities[view.name]?.toString() ?? '0'}
+                                                onChange={e => updateViewPriority(view.name, e.target.value)}
                                                 className="bg-background"
                                                 block
                                             />
