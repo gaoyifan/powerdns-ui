@@ -80,12 +80,12 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         <NotificationContext.Provider value={{ notifications, notify, dismiss, confirm }}>
             {children}
             {/* Global Toaster Container */}
-            <div className="fixed top-4 right-4 z-[100] flex flex-col gap-3 max-w-sm w-full pointer-events-none">
+            <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-3 max-w-sm w-full pointer-events-none">
                 {notifications.map(n => (
                     <div
                         key={n.id}
                         className={cn(
-                            "pointer-events-auto flex items-start gap-4 p-4 rounded-2xl shadow-2xl border backdrop-blur-xl animate-in slide-in-from-top-4 fade-in duration-500",
+                            "pointer-events-auto flex items-start gap-4 p-4 rounded-2xl shadow-2xl border backdrop-blur-xl animate-in slide-in-from-bottom-4 fade-in duration-500",
                             n.type === 'success' && "bg-background/95 border-success/30",
                             n.type === 'error' && "bg-background/95 border-destructive/30",
                             n.type === 'info' && "bg-background/95 border-info/30",

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { List, Network as NetworkIcon, ChevronDown, ChevronUp, Save, Plus, Trash2, Link2 } from 'lucide-react';
+import { List, Network as NetworkIcon, ChevronDown, ChevronUp, Save, Plus, Trash2, Link2, RotateCw } from 'lucide-react';
 import { pdns } from '../api/pdns';
 import { cn } from '../lib/utils';
 import { Button, Card, Flash, Input, Modal, ModalHeader, ModalTitle, ModalContent, ModalFooter, Loading, EmptyState, DeleteConfirmationModal, Badge } from '../components';
@@ -370,17 +370,25 @@ export const Views: React.FC = () => {
                     <h1 className="text-3xl font-bold tracking-tight">Views</h1>
                     <p className="text-muted-foreground">Manage DNS views and their associated networks.</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-3">
                     <Button
                         variant="secondary"
+                        leadingIcon={RotateCw}
                         onClick={handleUpdateAll}
                         loading={updatingAll}
+                        size="lg"
                         data-testid="update-all-btn"
                         disabled={loading}
                     >
                         Update All (URLs)
                     </Button>
-                    <Button variant="primary" leadingIcon={Plus} onClick={() => setIsCreateDialogOpen(true)} size="lg" data-testid="create-view-btn">
+                    <Button
+                        variant="primary"
+                        leadingIcon={Plus}
+                        onClick={() => setIsCreateDialogOpen(true)}
+                        size="lg"
+                        data-testid="create-view-btn"
+                    >
                         Create View
                     </Button>
                 </div>
