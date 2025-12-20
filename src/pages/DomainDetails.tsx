@@ -32,12 +32,7 @@ export const DomainDetails: React.FC = () => {
     // Search State
     const [searchQuery, setSearchQuery] = useState('');
 
-    const filteredRecords = unifiedRecords
-        .filter(record => {
-            // Hide non-default SOA records
-            if (record.type === 'SOA' && record.view !== 'default') return false;
-            return true;
-        })
+    const filteredRecords = (unifiedRecords || [])
         .filter(record => {
             const query = searchQuery.toLowerCase();
             return (
@@ -48,11 +43,16 @@ export const DomainDetails: React.FC = () => {
             );
         })
         .sort((a, b) => {
-            // Default SOA at top
-            const aIsDefaultSoa = a.type === 'SOA' && a.view === 'default';
-            const bIsDefaultSoa = b.type === 'SOA' && b.view === 'default';
-            if (aIsDefaultSoa && !bIsDefaultSoa) return -1;
-            if (!aIsDefaultSoa && bIsDefaultSoa) return 1;
+            // Group all SOA at top
+            if (a.type === 'SOA' && b.type !== 'SOA') return -1;
+            if (a.type !== 'SOA' && b.type === 'SOA') return 1;
+
+            // If both are SOA, default view first, then alphabetical by view
+            if (a.type === 'SOA' && b.type === 'SOA') {
+                if (a.view === 'default' && b.view !== 'default') return -1;
+                if (a.view !== 'default' && b.view === 'default') return 1;
+                return a.view.localeCompare(b.view);
+            }
             return 0;
         });
 
