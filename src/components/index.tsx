@@ -10,3 +10,4 @@ export { StatsCard } from './StatsCard';
 export { Loading } from './Loading';
 export { EmptyState } from './EmptyState';
 export { DeleteConfirmationModal } from './DeleteConfirmationModal';
+export * from './ImportZoneModal';

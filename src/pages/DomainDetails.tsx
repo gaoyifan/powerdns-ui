@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Plus, ChevronRight, LayoutList, ShieldCheck, Search, Pencil } from 'lucide-react';
+import { Plus, ChevronRight, LayoutList, ShieldCheck, Search, Pencil, FileUp } from 'lucide-react';
 import { apiClient } from '../api/client';
 import type { RecordWithView } from '../types/domain';
 import { useDomainRecords } from '../hooks/useDomainRecords';
-import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Flash, Input, Badge, InlineEditRow, Loading } from '../components';
+import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Flash, Input, Badge, InlineEditRow, Loading, ImportZoneModal, type ParsedRecord } from '../components';
 import { cn } from '../lib/utils';
 
 export const DomainDetails: React.FC = () => {
@@ -27,6 +27,7 @@ export const DomainDetails: React.FC = () => {
 
     // Record Creation State
     const [isAddingRecord, setIsAddingRecord] = useState(false);
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
     // Search State
     const [searchQuery, setSearchQuery] = useState('');
@@ -253,8 +254,64 @@ export const DomainDetails: React.FC = () => {
         }
     };
 
+    const handleImportRecords = async (records: ParsedRecord[], view: string) => {
+        if (!domainName) return;
 
+        const rrsetsMap: Record<string, { name: string, type: string, ttl: number, records: { content: string, disabled: boolean }[] }> = {};
 
+        records.forEach(r => {
+            const key = `${r.name}-${r.type}`;
+            if (!rrsetsMap[key]) {
+                rrsetsMap[key] = {
+                    name: r.name,
+                    type: r.type,
+                    ttl: r.ttl,
+                    records: []
+                };
+            }
+            rrsetsMap[key].records.push({
+                content: formatRecordContent(r.content, r.type),
+                disabled: false
+            });
+        });
+
+        let targetZoneId = domainName;
+        if (!targetZoneId.endsWith('.')) targetZoneId += '.';
+        if (view !== 'default') {
+            const baseName = targetZoneId.slice(0, -1);
+            targetZoneId = `${baseName}..${view}`;
+        }
+
+        let zoneExists = false;
+        try {
+            await apiClient.request(`/servers/localhost/zones/${targetZoneId}`);
+            zoneExists = true;
+        } catch (e) { /* ignore 404 */ }
+
+        if (!zoneExists) {
+            await apiClient.request('/servers/localhost/zones', {
+                method: 'POST',
+                body: JSON.stringify({
+                    name: targetZoneId,
+                    kind: 'Native',
+                    nameservers: ['ns1.localhost.'],
+                    view: view !== 'default' ? view : undefined
+                })
+            });
+        }
+
+        await apiClient.request(`/servers/localhost/zones/${targetZoneId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({
+                rrsets: Object.values(rrsetsMap).map(rrset => ({
+                    ...rrset,
+                    changetype: 'EXTEND'
+                }))
+            })
+        });
+
+        refetch();
+    };
 
     return (
         <div className="space-y-6">
@@ -275,10 +332,23 @@ export const DomainDetails: React.FC = () => {
                         <p className="text-muted-foreground text-sm">Managing records across all views</p>
                     </div>
                 </div>
-                <Button variant="primary" leadingIcon={Plus} onClick={() => setIsAddingRecord(true)} size="lg" disabled={isAddingRecord}>
-                    Add Record
-                </Button>
+                <div className="flex items-center gap-3">
+                    <Button variant="ghost" leadingIcon={FileUp} onClick={() => setIsImportModalOpen(true)} size="lg">
+                        Import
+                    </Button>
+                    <Button variant="primary" leadingIcon={Plus} onClick={() => setIsAddingRecord(true)} size="lg" disabled={isAddingRecord}>
+                        Add Record
+                    </Button>
+                </div>
             </div>
+
+            <ImportZoneModal
+                isOpen={isImportModalOpen}
+                onClose={() => setIsImportModalOpen(false)}
+                onImport={handleImportRecords}
+                availableViews={availableViews}
+                domainName={domainName || ''}
+            />
 
             {error && <Flash variant="danger">{error}</Flash>}
 
