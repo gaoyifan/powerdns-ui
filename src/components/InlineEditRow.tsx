@@ -51,7 +51,7 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
         }
     };
 
-    const recordTypes = ['A', 'AAAA', 'CNAME', 'DNAME', 'TXT', 'SPF', 'MX', 'NS', 'PTR', 'SRV', 'NAPTR'];
+    const recordTypes = ['A', 'AAAA', 'CNAME', 'DNAME', 'TXT', 'SPF', 'MX', 'NS', 'PTR', 'SRV', 'NAPTR', 'SOA'];
 
     return (
         <tr className="bg-muted/30 border-b border-primary/20">
@@ -62,6 +62,7 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
                     options={availableViews.map(v => ({ value: v, label: v }))}
                     className="h-9 w-full text-sm"
                     block
+                    disabled={type === 'SOA'}
                 />
             </td>
             <td className="px-6 py-4 align-top">
@@ -70,6 +71,7 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
                     onChange={e => setName(e.target.value)}
                     className="h-9 w-full"
                     block
+                    disabled={type === 'SOA'}
                 />
             </td>
             <td className="px-6 py-4 align-top">
@@ -79,6 +81,7 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
                     options={recordTypes.map(t => ({ value: t, label: t }))}
                     className="h-9 w-full text-sm"
                     block
+                    disabled={type === 'SOA'}
                 />
             </td>
             <td className="px-6 py-4 align-top">
@@ -91,17 +94,43 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
                 />
             </td>
             <td className="px-6 py-4 align-top">
-                <Input
-                    value={content}
-                    onChange={e => setContent(e.target.value)}
-                    className="h-9 w-full"
-                    autoFocus
-                    block
-                    onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleSave();
-                        if (e.key === 'Escape') onCancel();
-                    }}
-                />
+                {type === 'SOA' ? (
+                    <div className="grid grid-cols-2 gap-2">
+                        {(() => {
+                            const parts = content.split(/\s+/);
+                            // MNAME RNAME SERIAL REFRESH RETRY EXPIRE MINIMUM
+                            const names = ['Primary NS', 'Admin Email', 'Serial', 'Refresh', 'Retry', 'Expire', 'Min TTL'];
+                            return names.map((label, i) => (
+                                <div key={label} className="space-y-1">
+                                    <label className="text-[10px] uppercase font-bold text-muted-foreground">{label}</label>
+                                    <Input
+                                        value={parts[i] || ''}
+                                        onChange={e => {
+                                            const newParts = [...parts];
+                                            while (newParts.length < 7) newParts.push('');
+                                            newParts[i] = e.target.value;
+                                            setContent(newParts.join(' '));
+                                        }}
+                                        className="h-8 text-xs font-mono"
+                                        block
+                                    />
+                                </div>
+                            ));
+                        })()}
+                    </div>
+                ) : (
+                    <Input
+                        value={content}
+                        onChange={e => setContent(e.target.value)}
+                        className="h-9 w-full"
+                        autoFocus
+                        block
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSave();
+                            if (e.key === 'Escape') onCancel();
+                        }}
+                    />
+                )}
             </td>
             <td className="px-6 py-4 align-top">
                 <div className="flex items-center gap-1">
@@ -126,7 +155,7 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
                     >
                         <X className="size-4" />
                     </Button>
-                    {onDelete && (
+                    {onDelete && type !== 'SOA' && (
                         <Button
                             size="icon"
                             variant="ghost"

@@ -130,33 +130,52 @@ export const DomainDetails: React.FC = () => {
                 });
             } else {
                 // Pure update (TTL/Content change)
-                // Use a single PATCH with PRUNE and EXTEND
-                await apiClient.request(`/servers/localhost/zones/${original.zoneId}`, {
-                    method: 'PATCH',
-                    body: JSON.stringify({
-                        rrsets: [
-                            {
-                                name: original.name,
-                                type: original.type,
-                                ttl: original.ttl,
-                                changetype: 'PRUNE',
-                                records: [{
-                                    content: original.content
-                                }]
-                            },
-                            {
+                if (data.type === 'SOA') {
+                    // For SOA, we should always use REPLACE to ensure there's only one
+                    await apiClient.request(`/servers/localhost/zones/${original.zoneId}`, {
+                        method: 'PATCH',
+                        body: JSON.stringify({
+                            rrsets: [{
                                 name: original.name,
                                 type: original.type,
                                 ttl: data.ttl,
-                                changetype: 'EXTEND',
+                                changetype: 'REPLACE',
                                 records: [{
                                     content: formattedContent,
                                     disabled: false
                                 }]
-                            }
-                        ]
-                    })
-                });
+                            }]
+                        })
+                    });
+                } else {
+                    // Use a single PATCH with PRUNE and EXTEND for other record types
+                    await apiClient.request(`/servers/localhost/zones/${original.zoneId}`, {
+                        method: 'PATCH',
+                        body: JSON.stringify({
+                            rrsets: [
+                                {
+                                    name: original.name,
+                                    type: original.type,
+                                    ttl: original.ttl,
+                                    changetype: 'PRUNE',
+                                    records: [{
+                                        content: original.content
+                                    }]
+                                },
+                                {
+                                    name: original.name,
+                                    type: original.type,
+                                    ttl: data.ttl,
+                                    changetype: 'EXTEND',
+                                    records: [{
+                                        content: formattedContent,
+                                        disabled: false
+                                    }]
+                                }
+                            ]
+                        })
+                    });
+                }
             }
 
             setEditingRecordKey(null);
@@ -452,18 +471,16 @@ export const DomainDetails: React.FC = () => {
                                                     <div className="py-0.5">{rr.content}</div>
                                                 </td>
                                                 <td className="px-6 py-4">
-                                                    {rr.type !== 'SOA' && (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="size-8 text-muted-foreground hover:text-foreground"
-                                                            onClick={() => setEditingRecordKey(uniqueKey)}
-                                                            title="Edit Record"
-                                                            data-testid="edit-record-btn"
-                                                        >
-                                                            <Pencil className="size-4" />
-                                                        </Button>
-                                                    )}
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="size-8 text-muted-foreground hover:text-foreground"
+                                                        onClick={() => setEditingRecordKey(uniqueKey)}
+                                                        title="Edit Record"
+                                                        data-testid="edit-record-btn"
+                                                    >
+                                                        <Pencil className="size-4" />
+                                                    </Button>
                                                 </td>
                                             </tr>
                                         );
