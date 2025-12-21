@@ -2,6 +2,8 @@
 
 PowerDNS UI is a modern, fast, and feature-rich single-page application (SPA) designed for managing PowerDNS servers. Built with React, TypeScript, and Tailwind CSS, it provides a premium user experience for DNS administration, including split-horizon (Views) management and enhanced metadata support.
 
+![Domains Page](docs/screenshots/domains_page.png)
+
 ## Project Goals
 
 - **Direct Interoperation**: The primary goal of this project is to interoperate directly with the PowerDNS Local API.
@@ -15,6 +17,7 @@ PowerDNS UI is a modern, fast, and feature-rich single-page application (SPA) de
 
 - **Domain and Zone Management**: Full CRUD operations for DNS zones with a clean, unified interface.
 - **Split-Horizon Support (Views)**: Robust management of PowerDNS Views, allowing different DNS responses based on the requester's network.
+  ![Views Page](docs/screenshots/views_page.png)
 - **Intelligent Network Mapping**: Visually map CIDR networks to specific Views.
 - **Batch Synchronization**: 
     - Sync network-to-view mappings from remote URLs.
@@ -24,6 +27,7 @@ PowerDNS UI is a modern, fast, and feature-rich single-page application (SPA) de
 - **Enhanced Record Comments**:
     - Supports individual comments for multiple records of the same type and name.
     - Advanced Metadata: Uses MessagePack binary encoding to store structured metadata (type, content, comment) within PowerDNS TYPE65534 records.
+    ![Domain Details with Comments](docs/screenshots/domain_details.png)
 - **Zone File Import**: Bulk import records from BIND-style zone files using an intuitive modal with preview capabilities.
 - **Extensive Record Support**: Support for A, AAAA, ALIAS, CAA, CNAME, DNAME, HTTPS, MX, NAPTR, NS, PTR, SOA, SPF, SRV, SSHFP, SVCB, TLSA, and TXT.
 - **Modern UI and UX**:
