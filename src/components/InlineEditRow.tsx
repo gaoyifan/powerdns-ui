@@ -56,7 +56,11 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
         }
     };
 
-    const recordTypes = ['A', 'AAAA', 'CNAME', 'DNAME', 'TXT', 'SPF', 'MX', 'NS', 'PTR', 'SRV', 'NAPTR', 'SOA'];
+    const recordTypes = [
+        'A', 'AAAA', 'ALIAS', 'CAA', 'CNAME', 'DNAME',
+        'HTTPS', 'MX', 'NAPTR', 'NS', 'PTR', 'SOA',
+        'SPF', 'SRV', 'SSHFP', 'SVCB', 'TLSA', 'TXT'
+    ];
 
     return (
         <tr className="bg-muted/30 border-b border-primary/20">

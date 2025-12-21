@@ -59,7 +59,7 @@ export const ImportZoneModal: React.FC<ImportZoneModalProps> = ({
             };
 
             const normalizeContent = (content: string, type: string) => {
-                if ((type === 'CNAME' || type === 'MX' || type === 'NS' || type === 'PTR' || type === 'SRV') && content === '@') {
+                if ((type === 'CNAME' || type === 'MX' || type === 'NS' || type === 'PTR' || type === 'SRV' || type === 'ALIAS') && content === '@') {
                     return domainName.endsWith('.') ? domainName : domainName + '.';
                 }
                 return content;
