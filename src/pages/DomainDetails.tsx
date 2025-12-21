@@ -9,7 +9,7 @@ import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Flas
 import { useNotification } from '../contexts/NotificationContext';
 import { cn } from '../lib/utils';
 import { formatRecordContent, normalizeRecordName } from '../utils/recordUtils';
-import { COMMENT_RR_TYPE, encodeRFC3597, decodeRFC3597 } from '../utils/dns';
+import { encodeMetadata, decodeMetadata, COMMENT_RR_TYPE } from '../utils/dns';
 
 export const DomainDetails: React.FC = () => {
     const { notify } = useNotification();
@@ -31,30 +31,33 @@ export const DomainDetails: React.FC = () => {
     const unifiedRecords = useMemo(() => {
         if (!rawRecords) return [];
 
-        // 1. Extract comments from TYPE65534 records
-        const commentMap = new Map<string, string[]>(); // key: "name|view" -> comments
+        // 1. Extract metadata from TYPE65534 records
+        // Map of "name|view" -> Array of { type: string, content: string, comment: string }
+        const rdataMeta = new Map<string, any[]>();
 
         rawRecords.forEach(r => {
             if (r.type === COMMENT_RR_TYPE) {
-                const decoded = decodeRFC3597(r.content);
-                if (decoded) {
+                const data = decodeMetadata(r.content);
+                if (data && typeof data === 'object') {
                     const k = `${r.name}|${r.view}`;
-                    if (!commentMap.has(k)) commentMap.set(k, []);
-                    commentMap.get(k)!.push(decoded);
+                    if (!rdataMeta.has(k)) rdataMeta.set(k, []);
+                    rdataMeta.get(k)!.push(data);
                 }
             }
         });
 
-        // 2. Map normal records and attach comments
+        // 2. Map normal records and attach specific comments
         return rawRecords
-            .filter(r => r.type !== COMMENT_RR_TYPE) // Hide comment records from list
+            .filter(r => r.type !== COMMENT_RR_TYPE)
             .map(r => {
                 const key = `${r.name}|${r.view}`;
+                const metas = rdataMeta.get(key) || [];
+                // Find comment that matches this specific record's type and content
+                const matchedMeta = metas.find(m => m.type === r.type && m.content === r.content);
+
                 return {
                     ...r,
-                    comments: (commentMap.get(key) || []).map(content => ({
-                        content
-                    }))
+                    comments: matchedMeta?.comment ? [{ content: matchedMeta.comment }] : []
                 };
             });
     }, [rawRecords]);
@@ -90,123 +93,110 @@ export const DomainDetails: React.FC = () => {
             const isIdentityChanged = data.name !== original.name || data.type !== original.type || data.view !== original.view;
 
             if (isIdentityChanged) {
-                // 1. Handle Old Record: Remove it from old RRSet
-                await zoneService.patchZone(original.zoneId, [{
+                // 1. Handle Old Record: Remove it and its specific comment
+                const oldOps: any[] = [{
                     name: original.name,
                     type: original.type,
                     ttl: original.ttl,
                     changetype: 'PRUNE',
                     records: [{ content: original.content }]
-                }]);
+                }];
 
-                // 2. Handle New Record: Add to new RRSet
+                if (original.comments.length > 0) {
+                    oldOps.push({
+                        name: original.name,
+                        type: COMMENT_RR_TYPE,
+                        ttl: original.ttl,
+                        changetype: 'PRUNE',
+                        records: [{ content: encodeMetadata({ type: original.type, content: original.content, comment: original.comments[0].content }) }]
+                    });
+                }
+                await zoneService.patchZone(original.zoneId, oldOps);
+
+                // 2. Handle New Record: Ensure zone exists and add record with its comment
                 const targetZoneId = await zoneService.ensureZoneExists(domainName, data.view);
                 const newRrName = normalizeRecordName(data.name, domainName);
 
-                // Filter records that match destination (excluding comments type)
-                const siblingRecords = unifiedRecords.filter(r =>
-                    normalizeRecordName(r.name, domainName) === newRrName &&
-                    r.type === data.type &&
-                    r.view === data.view
-                );
-
-                const newRecordsPayload = [
-                    ...siblingRecords.map(r => ({ content: r.content, disabled: r.disabled })),
-                    { content: formattedContent, disabled: false }
-                ];
-
-                const rrsetsToPatch: RRSet[] = [{
+                const newOps: any[] = [{
                     name: newRrName,
                     type: data.type,
                     ttl: data.ttl,
-                    changetype: 'REPLACE',
-                    records: newRecordsPayload
+                    changetype: 'EXTEND',
+                    records: [{ content: formattedContent }]
                 }];
 
-                // 3. Handle Comments (TYPE65534)
-                // We should REPLACE the comment RRSet for this name
                 if (data.comments.length > 0) {
-                    rrsetsToPatch.push({
+                    newOps.push({
                         name: newRrName,
                         type: COMMENT_RR_TYPE,
                         ttl: data.ttl,
-                        changetype: 'REPLACE',
-                        records: data.comments.map(c => ({ content: encodeRFC3597(c), disabled: false }))
-                    });
-                } else {
-                    // If no comments, ensure we clean up any existing ones?
-                    // Only if we know they exist. But REPLACE with empty records list = delete?
-                    // Or explicit DELETE.
-                    // Ideally we should look if there are existing comments to delete.
-                    // For simplicity in "identity changed" (new name), just don't add them.
-                    // But if target name already had comments? We should probably overwrite/delete them.
-                    // Let's assume we overwrite.
-                    rrsetsToPatch.push({
-                        name: newRrName,
-                        type: COMMENT_RR_TYPE,
-                        ttl: data.ttl,
-                        changetype: 'REPLACE',
-                        records: []
+                        changetype: 'EXTEND',
+                        records: [{ content: encodeMetadata({ type: data.type, content: formattedContent, comment: data.comments[0] }) }]
                     });
                 }
-
-                await zoneService.patchZone(targetZoneId, rrsetsToPatch);
-
-                // If we moved, we should also move comemnts?
-                // The original had comments?
-                // We PRUNED the original record. Did we touch original comments?
-                // Original comments belong to the NAME.
-                // If there are other records left at original name (different type?), comments might still apply?
-                // This is tricky. Comments are conceptually attached to the "node" (name).
-                // If we move the last record from that name, we should probably move comments.
-                // But here we are editing ONE record.
-                // Let's handle comments only for the NEW identity.
-                // If we want to be clean, we should delete comments from old name if it becomes empty?
-                // Scope: Just handle saving new comments for now.
+                await zoneService.patchZone(targetZoneId, newOps);
 
             } else {
                 // Same Identity (Update TTL, Content, Comments)
-                const siblingRecords = unifiedRecords.filter(r =>
-                    r.name === original.name &&
-                    r.type === original.type &&
-                    r.view === original.view &&
-                    r.content !== original.content
-                );
+                const ops: any[] = [];
 
-                const newRecordsPayload = [
-                    ...siblingRecords.map(r => ({ content: r.content, disabled: r.disabled })),
-                    { content: formattedContent, disabled: original.disabled }
-                ];
-
-                const rrsetsToPatch: RRSet[] = [{
-                    name: original.name,
-                    type: original.type,
-                    ttl: data.ttl,
-                    changetype: 'REPLACE',
-                    records: newRecordsPayload
-                }];
-
-                // Update Comments
-                if (data.comments.length > 0) {
-                    rrsetsToPatch.push({
+                // If content changed, we PRUNE old and EXTEND new
+                if (data.content !== original.content) {
+                    ops.push({
                         name: original.name,
-                        type: COMMENT_RR_TYPE,
-                        ttl: data.ttl,
-                        changetype: 'REPLACE',
-                        records: data.comments.map(c => ({ content: encodeRFC3597(c), disabled: false }))
+                        type: original.type,
+                        ttl: original.ttl,
+                        changetype: 'PRUNE',
+                        records: [{ content: original.content }]
                     });
-                } else {
-                    // Delete comments
-                    rrsetsToPatch.push({
+                    ops.push({
+                        name: data.name,
+                        type: data.type,
+                        ttl: data.ttl,
+                        changetype: 'EXTEND',
+                        records: [{ content: formattedContent }]
+                    });
+                } else if (data.ttl !== original.ttl) {
+                    // Update TTL for all records in RRSet
+                    ops.push({
                         name: original.name,
-                        type: COMMENT_RR_TYPE,
+                        type: original.type,
                         ttl: data.ttl,
                         changetype: 'REPLACE',
-                        records: []
+                        records: unifiedRecords
+                            .filter(r => r.name === original.name && r.type === original.type && r.view === original.view)
+                            .map(r => ({ content: r.content, disabled: r.disabled }))
                     });
                 }
 
-                await zoneService.patchZone(original.zoneId, rrsetsToPatch);
+                // Handle specific comment change
+                const oldComment = original.comments[0]?.content || '';
+                const newComment = data.comments[0] || '';
+
+                if (oldComment !== newComment || data.content !== original.content) {
+                    if (oldComment) {
+                        ops.push({
+                            name: original.name,
+                            type: COMMENT_RR_TYPE,
+                            ttl: original.ttl,
+                            changetype: 'PRUNE',
+                            records: [{ content: encodeMetadata({ type: original.type, content: original.content, comment: oldComment }) }]
+                        });
+                    }
+                    if (newComment) {
+                        ops.push({
+                            name: data.name,
+                            type: COMMENT_RR_TYPE,
+                            ttl: data.ttl,
+                            changetype: 'EXTEND',
+                            records: [{ content: encodeMetadata({ type: data.type, content: formattedContent, comment: newComment }) }]
+                        });
+                    }
+                }
+
+                if (ops.length > 0) {
+                    await zoneService.patchZone(original.zoneId, ops);
+                }
             }
 
             setEditingRecordKey(null);
@@ -260,13 +250,25 @@ export const DomainDetails: React.FC = () => {
 
     const handleDeleteRecord = async (record: RecordWithView) => {
         try {
-            await zoneService.patchZone(record.zoneId, [{
+            const ops: any[] = [{
                 name: record.name,
                 type: record.type,
                 ttl: record.ttl,
                 changetype: 'PRUNE',
                 records: [{ content: record.content }]
-            }]);
+            }];
+
+            if (record.comments.length > 0) {
+                ops.push({
+                    name: record.name,
+                    type: COMMENT_RR_TYPE,
+                    ttl: record.ttl,
+                    changetype: 'PRUNE',
+                    records: [{ content: encodeMetadata({ type: record.type, content: record.content, comment: record.comments[0].content }) }]
+                });
+            }
+
+            await zoneService.patchZone(record.zoneId, ops);
             setEditingRecordKey(null);
             refetch();
             notify({ type: 'success', message: 'Record deleted successfully' });
@@ -286,37 +288,25 @@ export const DomainDetails: React.FC = () => {
             const targetZoneId = await zoneService.ensureZoneExists(domainName, data.view);
             const rrName = normalizeRecordName(data.name, domainName);
 
-            // Find existing records to preserve them
-            const siblingRecords = unifiedRecords.filter(r =>
-                normalizeRecordName(r.name, domainName) === rrName &&
-                r.type === data.type &&
-                r.view === data.view
-            );
-
-            const newRecordsPayload = [
-                ...siblingRecords.map(r => ({ content: r.content, disabled: r.disabled })),
-                { content: formattedContent, disabled: false }
-            ];
-
-            const rrsetsToPatch: RRSet[] = [{
+            const ops: any[] = [{
                 name: rrName,
                 type: data.type,
                 ttl: data.ttl,
-                changetype: 'REPLACE',
-                records: newRecordsPayload
+                changetype: 'EXTEND',
+                records: [{ content: formattedContent }]
             }];
 
             if (data.comments.length > 0) {
-                rrsetsToPatch.push({
+                ops.push({
                     name: rrName,
                     type: COMMENT_RR_TYPE,
                     ttl: data.ttl,
-                    changetype: 'REPLACE',
-                    records: data.comments.map(c => ({ content: encodeRFC3597(c), disabled: false }))
+                    changetype: 'EXTEND',
+                    records: [{ content: encodeMetadata({ type: data.type, content: formattedContent, comment: data.comments[0] }) }]
                 });
             }
 
-            await zoneService.patchZone(targetZoneId, rrsetsToPatch);
+            await zoneService.patchZone(targetZoneId, ops);
 
             setIsAddingRecord(false);
             refetch();
