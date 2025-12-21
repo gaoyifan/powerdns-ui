@@ -36,6 +36,7 @@ export const Views: React.FC = () => {
     const [viewUrls, setViewUrls] = useState<Record<string, string>>({});
     const [viewPriorities, setViewPriorities] = useState<Record<string, number>>({});
     const [updatingAll, setUpdatingAll] = useState(false);
+    const [syncProgress, setSyncProgress] = useState<{ completed: number, total: number } | null>(null);
 
     useEffect(() => {
         const savedUrls = localStorage.getItem('view_urls');
@@ -219,8 +220,11 @@ export const Views: React.FC = () => {
             // 2. Apply all desired mappings with limited concurrency to avoid ERR_INSUFFICIENT_RESOURCES
             const mappingEntries = Object.entries(desiredMappings);
             if (mappingEntries.length > 0) {
+                setSyncProgress({ completed: 0, total: mappingEntries.length });
                 const tasks = mappingEntries.map(([net, view]) => () => pdns.updateNetwork(net, view));
-                await pool(tasks, 10); // Batch update with 10 concurrent requests
+                await pool(tasks, 10, (completed, total) => {
+                    setSyncProgress({ completed, total });
+                });
             }
 
             // 3. Cleanup Orphan Networks (mappings to non-existent views)
@@ -253,6 +257,7 @@ export const Views: React.FC = () => {
             });
         } finally {
             setUpdatingAll(false);
+            setSyncProgress(null);
         }
     };
 
@@ -380,7 +385,9 @@ export const Views: React.FC = () => {
                         data-testid="update-all-btn"
                         disabled={loading}
                     >
-                        Update All (URLs)
+                        {syncProgress
+                            ? `Syncing ${Math.round((syncProgress.completed / syncProgress.total) * 100)}%`
+                            : 'Update All (URLs)'}
                     </Button>
                     <Button
                         variant="primary"
