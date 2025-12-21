@@ -145,7 +145,6 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
                 <Input
                     value={comment}
                     onChange={e => setComment(e.target.value)}
-                    placeholder="Comments..."
                     className="h-9 w-full"
                     block
                     onKeyDown={(e) => {
