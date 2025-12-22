@@ -1,7 +1,7 @@
 :80 {
     root * /usr/share/caddy
     handle /api/v1/* {
-        reverse_proxy http://pdns:8081
+        reverse_proxy http://pdns-primary:8081
     }
 
     handle {

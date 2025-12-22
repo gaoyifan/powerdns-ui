@@ -1,0 +1,14 @@
+$TTL 60
+$ORIGIN catalog.pdns.
+@               IN      SOA     invalid. hostmaster.invalid. (
+                        1       ; serial (must be <= epoch, PDNS will manage it)
+                        1H      ; refresh
+                        10M     ; retry
+                        1W      ; expire
+                        1800    ; negTTL
+                        )
+@               IN      NS      ns1.catalog.pdns.
+
+ns1             IN      A       172.30.20.10
+
+

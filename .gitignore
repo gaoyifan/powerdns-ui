@@ -11,6 +11,9 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+.env.*
+!.env.example
 
 # Editor directories and files
 .vscode/*
@@ -23,5 +26,6 @@ dist-ssr
 *.sln
 *.sw?
 
-# PowerDNS doc
+# docs for reference
 docs/pdns/
+docs/just.md

@@ -49,43 +49,59 @@ PowerDNS UI is a modern, fast, and feature-rich single-page application (SPA) de
 ### Prerequisites
 
 - Node.js (v18 or later)
-- npm or yarn
-- A running PowerDNS server with the HTTP API enabled.
+- npm or pnpm
+- [just](https://github.com/casey/just) (optional, recommended for development)
+- Docker & Docker Compose
 
-### Installation
+### Fast Track (Development Environment)
+
+This repository includes a pre-configured PowerDNS primary/secondary environment using Catalog Zones and TSIG.
+
+1. **Prepare Environment**:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. **Spin up and Test**:
+   ```bash
+   just up
+   ```
+   This command will:
+   - Start a Primary PDNS node, a Secondary node, and the UI.
+   - Automatically discover container IPs and configure Catalog Zone replication.
+   - Run a replication test to ensure everything is wired correctly.
+
+### Manual Installation
 
 1. Clone the repository:
-    ```bash
-    git clone <repository-url>
-    cd pdns-ui
-    ```
+   ```bash
+   git clone <repository-url>
+   cd pdns-ui
+   ```
 
 2. Install dependencies:
-    ```bash
-    npm install
-    ```
+   ```bash
+   npm install
+   ```
 
-### Development
+3. Start development server:
+   ```bash
+   npm run dev
+   ```
 
-Start the development server:
-```bash
-npm run dev
+## Advanced Deployment
+
+### Independent Secondary Deployment
+To deploy a Secondary node that maps directly to host port `53`, modify your `.env`:
+```env
+PDNS_SECONDARY_NETWORK_MODE=host
 ```
 
-Run tests:
-```bash
-npm test
-```
+### Dynamic IP Discovery
+The orchestration logic automatically sniffs container IPs and updates NS/A records in the zones. No static IP management is required in the `.env` file for standard Docker Bridge deployments.
 
-Build for production:
-```bash
-npm run build
-```
+## Testing & Quality
 
-## Docker Support
-
-The project includes a Dockerfile and docker-compose.yml for easy deployment using Caddy as a high-performance web server and reverse proxy.
-
-```bash
-docker compose up -d --build
-```
+- **Tests**: `npm test` or `just test`
+- **Build**: `npm run build`
+- **Clean Environment**: `just clean`
