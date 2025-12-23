@@ -1,0 +1,25 @@
+name: Integration Tests
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  integration-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Just
+        uses: extractions/setup-just@v2
+
+      - name: Start Environment (just dev)
+        run: just --dotenv-filename .env.ci dev
+
+      - name: Run Tests (just test)
+        run: just --dotenv-filename .env.ci test
