@@ -191,20 +191,33 @@ export const Domains: React.FC = () => {
                                             <div className="flex items-center gap-3 text-lg font-bold group-hover:text-primary transition-colors">
                                                 <span>{zone.name}</span>
                                                 {zone.catalog && (
-                                                    <Badge variant="outline" className="text-[10px] h-4 px-1 lowercase tracking-wider bg-primary/5 text-primary border-primary/20">
-                                                        Catalog: {zone.catalog}
+                                                    <Badge
+                                                        variant="secondary"
+                                                        className="bg-primary/5 text-primary border-primary/20 flex items-center gap-1 h-5 px-2 text-[10px] font-medium cursor-pointer hover:bg-primary/10 transition-colors"
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            setZoneForCatalog(zone);
+                                                            setSelectedCatalog(zone.catalog || '');
+                                                        }}
+                                                    >
+                                                        <Layers className="size-3 opacity-70" />
+                                                        <span className="opacity-70">Catalog</span>
+                                                        <span className="opacity-40 ml-0.5 pl-1 border-l border-primary/20">{zone.catalog}</span>
                                                     </Badge>
                                                 )}
                                             </div>
                                             <div className="flex gap-2 mt-1">
                                                 {zone.views.map(v => (
-                                                    <Badge key={v} variant={v === 'default' ? 'secondary' : 'default'} className="px-2 py-0 text-[10px]">
+                                                    <Badge key={v} variant={v === 'default' ? 'secondary' : 'default'} className="px-2 py-0 text-[10px] h-5">
                                                         {v}
                                                     </Badge>
                                                 ))}
                                                 {zone.kinds.map(k => (
-                                                    <Badge key={k} variant="outline" className="px-2 py-0 text-[10px] text-muted-foreground border-muted-foreground/30">
-                                                        {k}
+                                                    <Badge key={k} variant="outline" className="bg-muted/30 text-muted-foreground border-border/50 flex items-center gap-1 h-5 px-2 text-[10px] font-medium">
+                                                        <Server className="size-3 opacity-70" />
+                                                        <span className="opacity-70 capitalize">Kind</span>
+                                                        <span className="opacity-40 ml-0.5 pl-1 border-l border-muted-foreground/30 uppercase font-bold">{k}</span>
                                                     </Badge>
                                                 ))}
                                             </div>
