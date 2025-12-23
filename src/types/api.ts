@@ -58,3 +58,11 @@ export interface StatisticItem {
     type: 'StatisticItem';
     value: string;
 }
+
+export interface TSIGKey {
+    id: string;
+    name: string;
+    algorithm: string;
+    key: string;
+    type: 'TSIGKey';
+}

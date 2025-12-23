@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { Zone, RRSet, Server, StatisticItem, Network } from '../types/api';
+import type { Zone, RRSet, Server, StatisticItem, Network, TSIGKey } from '../types/api';
 
 export const pdns = {
     // Server
@@ -20,7 +20,15 @@ export const pdns = {
         return apiClient.request<{ rrsets: RRSet[] } & Zone>(`/servers/localhost/zones/${zoneId}`);
     },
 
-    createZone: async (zone: { name: string; kind: 'Native' | 'Master' | 'Slave' | 'Producer' | 'Consumer'; nameservers: string[]; view?: string; catalog?: string }) => {
+    createZone: async (zone: {
+        name: string;
+        kind: 'Native' | 'Master' | 'Slave' | 'Producer' | 'Consumer';
+        nameservers: string[];
+        view?: string;
+        catalog?: string;
+        master_tsig_key_ids?: string[];
+        slave_tsig_key_ids?: string[];
+    }) => {
         return apiClient.request('/servers/localhost/zones', {
             method: 'POST',
             body: JSON.stringify(zone),
@@ -44,6 +52,24 @@ export const pdns = {
         return apiClient.request(`/servers/localhost/zones/${zoneId}`, {
             method: 'PUT',
             body: JSON.stringify(updates),
+        });
+    },
+
+    // TSIG Keys
+    getTSIGKeys: async () => {
+        return apiClient.request<TSIGKey[]>('/servers/localhost/tsigkeys');
+    },
+
+    createTSIGKey: async (key: { name: string; algorithm: string; key?: string }) => {
+        return apiClient.request<TSIGKey>('/servers/localhost/tsigkeys', {
+            method: 'POST',
+            body: JSON.stringify(key),
+        });
+    },
+
+    deleteTSIGKey: async (keyId: string) => {
+        return apiClient.request(`/servers/localhost/tsigkeys/${keyId}`, {
+            method: 'DELETE',
         });
     },
 

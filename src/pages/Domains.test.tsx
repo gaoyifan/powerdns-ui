@@ -136,4 +136,49 @@ describe('Domains Page (Live API)', () => {
         // Restore correct config
         apiClient.configure({ baseUrl: TEST_BASE_URL });
     });
+
+    it('displays TSIG badges for zones with TSIG configured', async () => {
+        // 1. Create a zone
+        const zoneName = `tsig-test-${Date.now()}.com.`;
+        await pdns.createZone({
+            name: zoneName,
+            kind: 'Native',
+            nameservers: ['ns1.example.com.'],
+        });
+        createdZones.push(zoneName);
+
+        // 2. Create a TSIG key (PowerDNS appends a dot to the name if not present)
+        const keyName = `testkey-${Date.now()}.`;
+        await pdns.createTSIGKey({
+            name: keyName,
+            algorithm: 'hmac-sha256',
+        });
+
+        // 3. Assign TSIG key to zone
+        await pdns.updateZone(zoneName, {
+            master_tsig_key_ids: [keyName],
+        });
+
+        // 4. Render and check for badge
+        renderComponent();
+
+        await waitFor(
+            () => {
+                expect(screen.getByText(zoneName)).toBeInTheDocument();
+            },
+            { timeout: 10000 },
+        );
+
+        const zoneCard = screen.getByText(zoneName).closest('[data-testid="domain-card"]');
+        expect(zoneCard).toBeInTheDocument();
+
+        // 5. Check if TSIG badge is present
+        await waitFor(
+            () => {
+                const badge = within(zoneCard as HTMLElement).getByText(/TSIG \(Primary\)/i);
+                expect(badge).toBeInTheDocument();
+            },
+            { timeout: 15000 },
+        );
+    }, 30000);
 });

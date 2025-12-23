@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Globe, ExternalLink, Activity, Server, Layers, Trash2, MoreHorizontal } from 'lucide-react';
+import { Plus, Globe, ExternalLink, Activity, Server, Layers, Trash2, MoreHorizontal, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { pdns } from '../api/pdns';
 import { useZones } from '../hooks/useZones';
@@ -31,7 +31,7 @@ import type { UnifiedZone } from '../types/domain';
 
 export const Domains: React.FC = () => {
     const { notify } = useNotification();
-    const { unifiedZones, allRawZones, serverInfo, stats, loading, error, refetch } = useZones();
+    const { unifiedZones, allRawZones, tsigKeys, serverInfo, stats, loading, error, refetch } = useZones();
 
     // Create Modal State
     const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -55,6 +55,12 @@ export const Domains: React.FC = () => {
     const [zoneForKind, setZoneForKind] = useState<UnifiedZone | null>(null);
     const [selectedKind, setSelectedKind] = useState('');
     const [savingKind, setSavingKind] = useState(false);
+
+    // TSIG Modal State
+    const [zoneForTsig, setZoneForTsig] = useState<UnifiedZone | null>(null);
+    const [selectedTsigKey, setSelectedTsigKey] = useState('');
+    const [selectedTsigRole, setSelectedTsigRole] = useState<'master' | 'slave'>('master');
+    const [savingTsig, setSavingTsig] = useState(false);
 
     const handleCreateZone = async () => {
         if (!newZoneName) return;
@@ -156,6 +162,34 @@ export const Domains: React.FC = () => {
             });
         } finally {
             setSavingCatalog(false);
+        }
+    };
+
+    const handleUpdateTsig = async () => {
+        if (!zoneForTsig) return;
+        setSavingTsig(true);
+        try {
+            const updates: any = {};
+            if (selectedTsigRole === 'master') {
+                updates.master_tsig_key_ids = selectedTsigKey ? [selectedTsigKey] : [];
+            } else {
+                updates.slave_tsig_key_ids = selectedTsigKey ? [selectedTsigKey] : [];
+            }
+
+            // Update all versions of the zone to have the same TSIG setting
+            await Promise.all(zoneForTsig.ids.map((id) => pdns.updateZone(id, updates)));
+
+            notify({ type: 'success', title: 'TSIG Updated', message: `TSIG key for ${zoneForTsig.name} updated successfully.` });
+            setZoneForTsig(null);
+            refetch();
+        } catch (err: unknown) {
+            notify({
+                type: 'error',
+                title: 'Update Failed',
+                message: err instanceof Error ? err.message : 'Unknown error',
+            });
+        } finally {
+            setSavingTsig(false);
         }
     };
 
@@ -268,6 +302,40 @@ export const Domains: React.FC = () => {
                                                         </span>
                                                     </Badge>
                                                 ))}
+                                                {zone.tsigMasterKeys.length > 0 && (
+                                                    <Badge
+                                                        variant="outline"
+                                                        className="bg-primary/5 text-primary border-primary/20 flex items-center gap-1 h-5 px-2 text-[10px] font-medium cursor-pointer hover:bg-primary/10 transition-colors"
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            setZoneForTsig(zone);
+                                                            setSelectedTsigKey(zone.tsigMasterKeys[0]);
+                                                            setSelectedTsigRole('master');
+                                                            setActiveMenu(null);
+                                                        }}
+                                                    >
+                                                        <ShieldCheck className="size-3 opacity-70" />
+                                                        <span className="opacity-70 uppercase tracking-wider">TSIG (Primary)</span>
+                                                    </Badge>
+                                                )}
+                                                {zone.tsigSlaveKeys.length > 0 && (
+                                                    <Badge
+                                                        variant="outline"
+                                                        className="bg-primary/5 text-primary border-primary/20 flex items-center gap-1 h-5 px-2 text-[10px] font-medium cursor-pointer hover:bg-primary/10 transition-colors"
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            setZoneForTsig(zone);
+                                                            setSelectedTsigKey(zone.tsigSlaveKeys[0]);
+                                                            setSelectedTsigRole('slave');
+                                                            setActiveMenu(null);
+                                                        }}
+                                                    >
+                                                        <ShieldCheck className="size-3 opacity-70" />
+                                                        <span className="opacity-70 uppercase tracking-wider">TSIG (Secondary)</span>
+                                                    </Badge>
+                                                )}
                                             </div>
                                         </div>
                                     </Link>
@@ -326,6 +394,22 @@ export const Domains: React.FC = () => {
                                                         >
                                                             <Server className="size-4 text-muted-foreground" />
                                                             Set Zone Kind
+                                                        </button>
+                                                        <button
+                                                            className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-left hover:bg-accent transition-colors"
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                e.stopPropagation();
+                                                                setZoneForTsig(zone);
+                                                                // Try to find if any version has TSIG keys
+                                                                // For simplicity, we just clear and let the user set it
+                                                                setSelectedTsigKey('');
+                                                                setSelectedTsigRole('master');
+                                                                setActiveMenu(null);
+                                                            }}
+                                                        >
+                                                            <ShieldCheck className="size-4 text-muted-foreground" />
+                                                            Set TSIG Key
                                                         </button>
                                                         <div className="h-px bg-border/60 mx-1 my-1" />
                                                         <button
@@ -458,6 +542,42 @@ export const Domains: React.FC = () => {
                     </Button>
                     <Button variant="primary" disabled={savingKind} onClick={handleUpdateKind} loading={savingKind}>
                         Update Kind
+                    </Button>
+                </ModalFooter>
+            </Modal>
+
+            <Modal isOpen={!!zoneForTsig} onClose={() => setZoneForTsig(null)}>
+                <ModalHeader>
+                    <ModalTitle>Update TSIG Key</ModalTitle>
+                </ModalHeader>
+                <ModalContent className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                        Configure TSIG authentication for <strong>{zoneForTsig?.name}</strong>.
+                    </p>
+                    <Select
+                        label="Role"
+                        value={selectedTsigRole}
+                        onChange={(e) => setSelectedTsigRole(e.target.value as any)}
+                        block
+                        options={[
+                            { value: 'master', label: 'Primary (TSIG-ALLOW-AXFR)' },
+                            { value: 'slave', label: 'Secondary (AXFR-MASTER-TSIG)' },
+                        ]}
+                    />
+                    <Select
+                        label="TSIG Key"
+                        value={selectedTsigKey}
+                        onChange={(e) => setSelectedTsigKey(e.target.value)}
+                        block
+                        options={[{ value: '', label: 'None (Unassigned)' }, ...tsigKeys.map((k) => ({ value: k.name, label: k.name }))]}
+                    />
+                </ModalContent>
+                <ModalFooter>
+                    <Button onClick={() => setZoneForTsig(null)} variant="ghost">
+                        Cancel
+                    </Button>
+                    <Button variant="primary" disabled={savingTsig} onClick={handleUpdateTsig} loading={savingTsig}>
+                        Update TSIG
                     </Button>
                 </ModalFooter>
             </Modal>

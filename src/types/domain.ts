@@ -19,4 +19,6 @@ export interface UnifiedZone {
     ids: string[];
     catalog?: string;
     kinds: string[];
+    tsigMasterKeys: string[];
+    tsigSlaveKeys: string[];
 }
