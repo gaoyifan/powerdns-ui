@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { pdns } from '../api/pdns';
-import type { Server, StatisticItem, Zone, TSIGKey } from '../types/api';
+import type { Server, StatisticItem, Zone } from '../types/api';
 import type { UnifiedZone } from '../types/domain';
 import { parseZoneId } from '../utils/zoneUtils';
 import { pool } from '../utils/promiseUtils';
@@ -10,17 +10,15 @@ export const useZones = () => {
     const [serverInfo, setServerInfo] = useState<Server | null>(null);
     const [stats, setStats] = useState<StatisticItem[]>([]);
     const [allRawZones, setAllRawZones] = useState<Zone[]>([]);
-    const [tsigKeys, setTsigKeys] = useState<TSIGKey[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const [zonesResSummary, serverRes, tsigRes, statsRes] = await Promise.all([
+            const [zonesResSummary, serverRes, statsRes] = await Promise.all([
                 pdns.getZones(),
                 pdns.getServerInfo(),
-                pdns.getTSIGKeys().catch(() => [] as TSIGKey[]),
                 pdns.getStatistics().catch(() => [] as StatisticItem[]),
             ]);
 
@@ -36,7 +34,7 @@ export const useZones = () => {
                 const { name, view } = parseZoneId(zone.id);
 
                 if (!grouped[name]) {
-                    grouped[name] = { name, views: [], ids: [], kinds: [], tsigMasterKeys: [], tsigSlaveKeys: [] };
+                    grouped[name] = { name, views: [], ids: [], kinds: [] };
                 }
                 if (!grouped[name].views.includes(view)) {
                     grouped[name].views.push(view);
@@ -45,28 +43,14 @@ export const useZones = () => {
                     grouped[name].kinds.push(zone.kind);
                 }
 
-                if (zone.master_tsig_key_ids) {
-                    zone.master_tsig_key_ids.forEach((k) => {
-                        if (!grouped[name].tsigMasterKeys.includes(k)) grouped[name].tsigMasterKeys.push(k);
-                    });
-                }
-                if (zone.slave_tsig_key_ids) {
-                    zone.slave_tsig_key_ids.forEach((k) => {
-                        if (!grouped[name].tsigSlaveKeys.includes(k)) grouped[name].tsigSlaveKeys.push(k);
-                    });
-                }
 
-                // Prefer catalog setting from default view
-                if (view === 'default' || !grouped[name].catalog) {
-                    grouped[name].catalog = zone.catalog;
-                }
+
 
                 grouped[name].ids.push(zone.id);
             });
 
             setUnifiedZones(Object.values(grouped));
             setAllRawZones(zonesRes);
-            setTsigKeys(tsigRes);
             setServerInfo(serverRes);
             setStats(statsRes);
             setError(null);
@@ -81,5 +65,5 @@ export const useZones = () => {
         fetchData();
     }, [fetchData]);
 
-    return { unifiedZones, allRawZones, tsigKeys, serverInfo, stats, loading, error, refetch: fetchData };
+    return { unifiedZones, allRawZones, serverInfo, stats, loading, error, refetch: fetchData };
 };

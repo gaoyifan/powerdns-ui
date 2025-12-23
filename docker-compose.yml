@@ -1,97 +1,35 @@
 services:
-  pdns-primary:
-    container_name: pdns-primary-pdns-1
-    profiles: [ "primary" ]
+  pdns:
+    container_name: pdns-server
     image: ${PDNS_IMAGE:-powerdns/pdns-auth-50}:${PDNS_TAG:-5.0.2}
     user: root
     restart: unless-stopped
-    network_mode: ${PDNS_PRIMARY_NETWORK_MODE:-}
+    network_mode: ${PDNS_NETWORK_MODE:-}
     ports:
       - "8081:8081"
       - "53:53/udp"
     # Note: networks and ports are ignored if network_mode is 'host'
     volumes:
-      - pdns-primary-data:/var/lib/powerdns
+      - pdns-data:/var/lib/powerdns
       - ./pdns.conf:/etc/powerdns/pdns.conf:ro
       - ./deploy/zones:/zones:ro
-    command: [ "--primary", "--api-key=${PDNS_API_KEY:-secret}" ]
+    command: [ "--api-key=${PDNS_API_KEY:-secret}" ]
     healthcheck:
       test: [ "CMD-SHELL", "pdns_control rping >/dev/null 2>&1 || exit 1" ]
       interval: 2s
       timeout: 2s
       retries: 30
-
-  pdns-secondary:
-    container_name: pdns-secondary-pdns-1
-    profiles: [ "secondary" ]
-    image: ${PDNS_IMAGE:-powerdns/pdns-auth-50}:${PDNS_TAG:-5.0.2}
-    user: root
-    restart: unless-stopped
-    network_mode: ${PDNS_SECONDARY_NETWORK_MODE:-}
-    # Note: networks is ignored if network_mode is 'host'
-    volumes:
-      - pdns-secondary-data:/var/lib/powerdns
-      - ./pdns.conf:/etc/powerdns/pdns.conf:ro
-      - ./deploy/zones:/zones:ro
-    command: [ "--secondary", "--api-key=${PDNS_API_KEY:-secret}" ]
-    healthcheck:
-      test: [ "CMD-SHELL", "pdns_control rping >/dev/null 2>&1 || exit 1" ]
-      interval: 2s
-      timeout: 2s
-      retries: 30
-
-  # Sidecar: watches secondary logs and auto-activates TSIG for new catalog member zones
-  pdns-secondary-tsig-sidecar:
-    container_name: pdns-secondary-tsig-sidecar-1
-    profiles: [ "secondary" ]
-    image: ghcr.io/astral-sh/uv:python3.13-alpine
-    restart: unless-stopped
-    environment:
-      PDNS_SECONDARY_CONTAINER: pdns-secondary-pdns-1
-      SCAN_INTERVAL: "2"
-      PDNS_TSIG_NAME: ${PDNS_TSIG_NAME}
-      PDNS_CATALOG_ZONE: ${PDNS_CATALOG_ZONE}
-    depends_on:
-      pdns-secondary:
-        condition: service_healthy
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./deploy/sidecar:/sidecar:ro
-    command: [ "uv", "run", "--with", "docker", "/sidecar/tsig-activator.py" ]
-
-  # Sidecar: Synchronizes views and networks from YAML config
-  pdns-view-syncer:
-    container_name: pdns-view-syncer-1
-    profiles: [ "sync" ]
-    image: ghcr.io/astral-sh/uv:python3.13-alpine
-    restart: unless-stopped
-    environment:
-      PDNS_API_URL: http://localhost:8081/api/v1
-      PDNS_API_KEY: ${PDNS_API_KEY:-secret}
-      SYNC_CONFIG_PATH: /config/views.yml
-      SYNC_INTERVAL: ${SYNC_INTERVAL:-86400}
-    network_mode: "container:${SYNC_TARGET_CONTAINER:-pdns-primary-pdns-1}"
-    volumes:
-      - ./deploy/sidecar:/sidecar:ro
-      - ./deploy/config:/config:ro
-    command: [ "uv", "run", "--with", "pyyaml", "--with", "httpx", "/sidecar/view-syncer.py" ]
 
   ui:
     build: .
-    profiles: [ "primary" ]
     environment:
-      - API_UPSTREAM=${API_UPSTREAM:-pdns-primary:8081}
+      - API_UPSTREAM=${API_UPSTREAM:-pdns:8081}
     ports:
       - "8080:80"
     depends_on:
-      pdns-primary:
+      pdns:
         condition: service_healthy
     restart: unless-stopped
 
 volumes:
-  pdns-primary-data:
-  pdns-secondary-data:
-
-    #networks:
-    #  default:
-    #    driver: bridge
+  pdns-data:

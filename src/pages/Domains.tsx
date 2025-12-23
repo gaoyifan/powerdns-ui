@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Globe, ExternalLink, Activity, Server, Layers, Trash2, MoreHorizontal, ShieldCheck } from 'lucide-react';
+import { Plus, Globe, ExternalLink, Activity, Server, Layers, Trash2, MoreHorizontal } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { pdns } from '../api/pdns';
 import { useZones } from '../hooks/useZones';
@@ -31,7 +31,7 @@ import type { UnifiedZone } from '../types/domain';
 
 export const Domains: React.FC = () => {
     const { notify } = useNotification();
-    const { unifiedZones, allRawZones, tsigKeys, serverInfo, stats, loading, error, refetch } = useZones();
+    const { unifiedZones, serverInfo, stats, loading, error, refetch } = useZones();
 
     // Create Modal State
     const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -43,10 +43,7 @@ export const Domains: React.FC = () => {
     const [zoneToDelete, setZoneToDelete] = useState<{ ids: string[]; name: string } | null>(null);
     const [deleting, setDeleting] = useState(false);
 
-    // Catalog Modal State
-    const [zoneForCatalog, setZoneForCatalog] = useState<UnifiedZone | null>(null);
-    const [selectedCatalog, setSelectedCatalog] = useState('');
-    const [savingCatalog, setSavingCatalog] = useState(false);
+
 
     // Dropdown State
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
@@ -56,11 +53,6 @@ export const Domains: React.FC = () => {
     const [selectedKind, setSelectedKind] = useState('');
     const [savingKind, setSavingKind] = useState(false);
 
-    // TSIG Modal State
-    const [zoneForTsig, setZoneForTsig] = useState<UnifiedZone | null>(null);
-    const [selectedTsigKey, setSelectedTsigKey] = useState('');
-    const [selectedTsigRole, setSelectedTsigRole] = useState<'master' | 'slave'>('master');
-    const [savingTsig, setSavingTsig] = useState(false);
 
     const handleCreateZone = async () => {
         if (!newZoneName) return;
@@ -144,54 +136,8 @@ export const Domains: React.FC = () => {
         }
     };
 
-    const handleUpdateCatalog = async () => {
-        if (!zoneForCatalog) return;
-        setSavingCatalog(true);
-        try {
-            // Update all versions of the zone to have the same catalog
-            await Promise.all(zoneForCatalog.ids.map((id) => pdns.updateZone(id, { catalog: selectedCatalog })));
 
-            notify({ type: 'success', title: 'Catalog Updated', message: `Catalog for ${zoneForCatalog.name} updated successfully.` });
-            setZoneForCatalog(null);
-            refetch();
-        } catch (err: unknown) {
-            notify({
-                type: 'error',
-                title: 'Update Failed',
-                message: err instanceof Error ? err.message : 'Unknown error',
-            });
-        } finally {
-            setSavingCatalog(false);
-        }
-    };
 
-    const handleUpdateTsig = async () => {
-        if (!zoneForTsig) return;
-        setSavingTsig(true);
-        try {
-            const updates: any = {};
-            if (selectedTsigRole === 'master') {
-                updates.master_tsig_key_ids = selectedTsigKey ? [selectedTsigKey] : [];
-            } else {
-                updates.slave_tsig_key_ids = selectedTsigKey ? [selectedTsigKey] : [];
-            }
-
-            // Update all versions of the zone to have the same TSIG setting
-            await Promise.all(zoneForTsig.ids.map((id) => pdns.updateZone(id, updates)));
-
-            notify({ type: 'success', title: 'TSIG Updated', message: `TSIG key for ${zoneForTsig.name} updated successfully.` });
-            setZoneForTsig(null);
-            refetch();
-        } catch (err: unknown) {
-            notify({
-                type: 'error',
-                title: 'Update Failed',
-                message: err instanceof Error ? err.message : 'Unknown error',
-            });
-        } finally {
-            setSavingTsig(false);
-        }
-    };
 
     return (
         <div className="space-y-6">
@@ -260,22 +206,6 @@ export const Domains: React.FC = () => {
                                         <div>
                                             <div className="flex items-center gap-3 text-lg font-bold group-hover:text-primary transition-colors">
                                                 <span>{zone.name}</span>
-                                                {zone.catalog && (
-                                                    <Badge
-                                                        variant="secondary"
-                                                        className="bg-primary/5 text-primary border-primary/20 flex items-center gap-1 h-5 px-2 text-[10px] font-medium cursor-pointer hover:bg-primary/10 transition-colors"
-                                                        onClick={(e) => {
-                                                            e.preventDefault();
-                                                            e.stopPropagation();
-                                                            setZoneForCatalog(zone);
-                                                            setSelectedCatalog(zone.catalog || '');
-                                                        }}
-                                                    >
-                                                        <Layers className="size-3 opacity-70" />
-                                                        <span className="opacity-70">Catalog</span>
-                                                        <span className="opacity-40 ml-0.5 pl-1 border-l border-primary/20">{zone.catalog}</span>
-                                                    </Badge>
-                                                )}
                                             </div>
                                             <div className="flex gap-2 mt-1">
                                                 {zone.views.map((v) => (
@@ -302,40 +232,6 @@ export const Domains: React.FC = () => {
                                                         </span>
                                                     </Badge>
                                                 ))}
-                                                {zone.tsigMasterKeys.length > 0 && (
-                                                    <Badge
-                                                        variant="outline"
-                                                        className="bg-primary/5 text-primary border-primary/20 flex items-center gap-1 h-5 px-2 text-[10px] font-medium cursor-pointer hover:bg-primary/10 transition-colors"
-                                                        onClick={(e) => {
-                                                            e.preventDefault();
-                                                            e.stopPropagation();
-                                                            setZoneForTsig(zone);
-                                                            setSelectedTsigKey(zone.tsigMasterKeys[0]);
-                                                            setSelectedTsigRole('master');
-                                                            setActiveMenu(null);
-                                                        }}
-                                                    >
-                                                        <ShieldCheck className="size-3 opacity-70" />
-                                                        <span className="opacity-70 uppercase tracking-wider">TSIG (Primary)</span>
-                                                    </Badge>
-                                                )}
-                                                {zone.tsigSlaveKeys.length > 0 && (
-                                                    <Badge
-                                                        variant="outline"
-                                                        className="bg-primary/5 text-primary border-primary/20 flex items-center gap-1 h-5 px-2 text-[10px] font-medium cursor-pointer hover:bg-primary/10 transition-colors"
-                                                        onClick={(e) => {
-                                                            e.preventDefault();
-                                                            e.stopPropagation();
-                                                            setZoneForTsig(zone);
-                                                            setSelectedTsigKey(zone.tsigSlaveKeys[0]);
-                                                            setSelectedTsigRole('slave');
-                                                            setActiveMenu(null);
-                                                        }}
-                                                    >
-                                                        <ShieldCheck className="size-3 opacity-70" />
-                                                        <span className="opacity-70 uppercase tracking-wider">TSIG (Secondary)</span>
-                                                    </Badge>
-                                                )}
                                             </div>
                                         </div>
                                     </Link>
@@ -374,19 +270,6 @@ export const Domains: React.FC = () => {
                                                             onClick={(e) => {
                                                                 e.preventDefault();
                                                                 e.stopPropagation();
-                                                                setZoneForCatalog(zone);
-                                                                setSelectedCatalog(zone.catalog || '');
-                                                                setActiveMenu(null);
-                                                            }}
-                                                        >
-                                                            <Layers className="size-4 text-muted-foreground" />
-                                                            Set Catalog Zone
-                                                        </button>
-                                                        <button
-                                                            className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-left hover:bg-accent transition-colors"
-                                                            onClick={(e) => {
-                                                                e.preventDefault();
-                                                                e.stopPropagation();
                                                                 setZoneForKind(zone);
                                                                 setSelectedKind(zone.kinds[0] || 'Native');
                                                                 setActiveMenu(null);
@@ -394,22 +277,6 @@ export const Domains: React.FC = () => {
                                                         >
                                                             <Server className="size-4 text-muted-foreground" />
                                                             Set Zone Kind
-                                                        </button>
-                                                        <button
-                                                            className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-left hover:bg-accent transition-colors"
-                                                            onClick={(e) => {
-                                                                e.preventDefault();
-                                                                e.stopPropagation();
-                                                                setZoneForTsig(zone);
-                                                                // Try to find if any version has TSIG keys
-                                                                // For simplicity, we just clear and let the user set it
-                                                                setSelectedTsigKey('');
-                                                                setSelectedTsigRole('master');
-                                                                setActiveMenu(null);
-                                                            }}
-                                                        >
-                                                            <ShieldCheck className="size-4 text-muted-foreground" />
-                                                            Set TSIG Key
                                                         </button>
                                                         <div className="h-px bg-border/60 mx-1 my-1" />
                                                         <button
@@ -459,8 +326,7 @@ export const Domains: React.FC = () => {
                             { value: 'Native', label: 'Native' },
                             { value: 'Master', label: 'Master' },
                             { value: 'Slave', label: 'Slave' },
-                            { value: 'Producer', label: 'Producer' },
-                            { value: 'Consumer', label: 'Consumer' },
+                            { value: 'Slave', label: 'Slave' },
                         ]}
                     />
                 </ModalContent>
@@ -489,31 +355,6 @@ export const Domains: React.FC = () => {
                 loading={deleting}
             />
 
-            <Modal isOpen={!!zoneForCatalog} onClose={() => setZoneForCatalog(null)}>
-                <ModalHeader>
-                    <ModalTitle>Update Catalog Zone</ModalTitle>
-                </ModalHeader>
-                <ModalContent className="space-y-4">
-                    <p className="text-sm text-muted-foreground">
-                        Set the catalog zone for <strong>{zoneForCatalog?.name}</strong>.
-                    </p>
-                    <Select
-                        label="Catalog Zone"
-                        value={selectedCatalog}
-                        onChange={(e) => setSelectedCatalog(e.target.value)}
-                        block
-                        options={[{ value: '', label: 'None (Unassigned)' }, ...allRawZones.map((z) => ({ value: z.name, label: z.name }))]}
-                    />
-                </ModalContent>
-                <ModalFooter>
-                    <Button onClick={() => setZoneForCatalog(null)} variant="ghost">
-                        Cancel
-                    </Button>
-                    <Button variant="primary" disabled={savingCatalog} onClick={handleUpdateCatalog} loading={savingCatalog}>
-                        Update Catalog
-                    </Button>
-                </ModalFooter>
-            </Modal>
             <Modal isOpen={!!zoneForKind} onClose={() => setZoneForKind(null)}>
                 <ModalHeader>
                     <ModalTitle>Update Zone Kind</ModalTitle>
@@ -531,8 +372,7 @@ export const Domains: React.FC = () => {
                             { value: 'Native', label: 'Native' },
                             { value: 'Master', label: 'Master' },
                             { value: 'Slave', label: 'Slave' },
-                            { value: 'Producer', label: 'Producer' },
-                            { value: 'Consumer', label: 'Consumer' },
+                            { value: 'Slave', label: 'Slave' },
                         ]}
                     />
                 </ModalContent>
@@ -546,41 +386,6 @@ export const Domains: React.FC = () => {
                 </ModalFooter>
             </Modal>
 
-            <Modal isOpen={!!zoneForTsig} onClose={() => setZoneForTsig(null)}>
-                <ModalHeader>
-                    <ModalTitle>Update TSIG Key</ModalTitle>
-                </ModalHeader>
-                <ModalContent className="space-y-4">
-                    <p className="text-sm text-muted-foreground">
-                        Configure TSIG authentication for <strong>{zoneForTsig?.name}</strong>.
-                    </p>
-                    <Select
-                        label="Role"
-                        value={selectedTsigRole}
-                        onChange={(e) => setSelectedTsigRole(e.target.value as any)}
-                        block
-                        options={[
-                            { value: 'master', label: 'Primary (TSIG-ALLOW-AXFR)' },
-                            { value: 'slave', label: 'Secondary (AXFR-MASTER-TSIG)' },
-                        ]}
-                    />
-                    <Select
-                        label="TSIG Key"
-                        value={selectedTsigKey}
-                        onChange={(e) => setSelectedTsigKey(e.target.value)}
-                        block
-                        options={[{ value: '', label: 'None (Unassigned)' }, ...tsigKeys.map((k) => ({ value: k.name, label: k.name }))]}
-                    />
-                </ModalContent>
-                <ModalFooter>
-                    <Button onClick={() => setZoneForTsig(null)} variant="ghost">
-                        Cancel
-                    </Button>
-                    <Button variant="primary" disabled={savingTsig} onClick={handleUpdateTsig} loading={savingTsig}>
-                        Update TSIG
-                    </Button>
-                </ModalFooter>
-            </Modal>
         </div>
     );
 };

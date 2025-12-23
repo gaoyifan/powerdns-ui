@@ -25,10 +25,7 @@ export const zoneService = {
 
         // Fetch attributes from default view to maintain consistency
         let nameservers: string[] = [];
-        let catalog: string | undefined = undefined;
-        let kind: 'Native' | 'Master' | 'Slave' | 'Producer' | 'Consumer' = 'Native';
-        let master_tsig_key_ids: string[] = [];
-        let slave_tsig_key_ids: string[] = [];
+        let kind: 'Native' | 'Master' | 'Slave' = 'Native';
 
         try {
             const defaultZoneId = zoneService.getZoneId(domainName, 'default');
@@ -40,19 +37,11 @@ export const zoneService = {
                 nameservers = nsRrset.records.map((r: any) => r.content);
             }
 
-            // Inherit catalog and kind
-            catalog = defaultZone.catalog;
+            // Inherit kind
             if (defaultZone.kind) {
                 kind = defaultZone.kind as any;
             }
 
-            // Inherit TSIG keys
-            if (defaultZone.master_tsig_key_ids) {
-                master_tsig_key_ids = defaultZone.master_tsig_key_ids;
-            }
-            if (defaultZone.slave_tsig_key_ids) {
-                slave_tsig_key_ids = defaultZone.slave_tsig_key_ids;
-            }
         } catch (e) {
             // If default zone fetch fails, use fallbacks
             console.warn(`Could not fetch default zone attributes for ${domainName}, using fallbacks.`, e);
@@ -63,9 +52,6 @@ export const zoneService = {
             name: targetZoneId,
             kind: kind,
             nameservers: nameservers,
-            catalog: catalog,
-            master_tsig_key_ids: master_tsig_key_ids,
-            slave_tsig_key_ids: slave_tsig_key_ids,
         });
 
         // If specific view, add it to the view

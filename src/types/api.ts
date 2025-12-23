@@ -17,9 +17,6 @@ export interface Zone {
     zone?: string; // Format: zone_name..view_name
     account?: string;
     nameservers?: string[];
-    master_tsig_key_ids?: string[];
-    slave_tsig_key_ids?: string[];
-    catalog?: string;
 }
 
 export interface RRSet {
@@ -59,10 +56,3 @@ export interface StatisticItem {
     value: string;
 }
 
-export interface TSIGKey {
-    id: string;
-    name: string;
-    algorithm: string;
-    key: string;
-    type: 'TSIGKey';
-}
