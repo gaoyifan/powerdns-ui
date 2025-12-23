@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
-import { Plus, Globe, ExternalLink, Activity, Server, Layers, Trash2 } from 'lucide-react';
+import { Plus, Globe, ExternalLink, Activity, Server, Layers, Trash2, MoreHorizontal, Settings } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { pdns } from '../api/pdns';
 import { useZones } from '../hooks/useZones';
 import { formatUptime } from '../utils/formatUtils';
 import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Flash, Modal, ModalHeader, ModalTitle, ModalContent, ModalFooter, Input, Select, Badge, StatsCard, Loading, EmptyState, DeleteConfirmationModal } from '../components';
 import { useNotification } from '../contexts/NotificationContext';
+import { cn } from '../lib/utils';
+import type { UnifiedZone } from '../types/domain';
 
 export const Domains: React.FC = () => {
     const { notify } = useNotification();
-    const { unifiedZones, serverInfo, stats, loading, error, refetch } = useZones();
+    const { unifiedZones, allRawZones, serverInfo, stats, loading, error, refetch } = useZones();
 
     // Create Modal State
     const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -20,6 +22,14 @@ export const Domains: React.FC = () => {
     // Delete State
     const [zoneToDelete, setZoneToDelete] = useState<{ ids: string[], name: string } | null>(null);
     const [deleting, setDeleting] = useState(false);
+
+    // Catalog Modal State
+    const [zoneForCatalog, setZoneForCatalog] = useState<UnifiedZone | null>(null);
+    const [selectedCatalog, setSelectedCatalog] = useState('');
+    const [savingCatalog, setSavingCatalog] = useState(false);
+
+    // Dropdown State
+    const [activeMenu, setActiveMenu] = useState<string | null>(null);
 
     const handleCreateZone = async () => {
         if (!newZoneName) return;
@@ -79,6 +89,28 @@ export const Domains: React.FC = () => {
             });
         } finally {
             setDeleting(false);
+        }
+    };
+
+    const handleUpdateCatalog = async () => {
+        if (!zoneForCatalog) return;
+        setSavingCatalog(true);
+        try {
+            // Find the default view ID for this zone
+            const defaultId = zoneForCatalog.name.endsWith('.') ? zoneForCatalog.name : zoneForCatalog.name + '.';
+            await pdns.updateZone(defaultId, { catalog: selectedCatalog });
+
+            notify({ type: 'success', title: 'Catalog Updated', message: `Catalog for ${zoneForCatalog.name} updated successfully.` });
+            setZoneForCatalog(null);
+            refetch();
+        } catch (err: unknown) {
+            notify({
+                type: 'error',
+                title: 'Update Failed',
+                message: err instanceof Error ? err.message : 'Unknown error'
+            });
+        } finally {
+            setSavingCatalog(false);
         }
     };
 
@@ -145,7 +177,7 @@ export const Domains: React.FC = () => {
                             {unifiedZones.map((zone) => (
                                 <div
                                     key={zone.name}
-                                    className="group flex items-center justify-between p-4 rounded-xl border border-border/60 bg-background/50 hover:bg-accent/50 hover:border-primary/30 transition-all shadow-sm"
+                                    className="group flex items-center justify-between p-4 rounded-xl border border-border/60 bg-background/50 hover:bg-accent/50 hover:border-primary/30 transition-all shadow-sm relative"
                                     data-testid="domain-card"
                                 >
                                     <Link
@@ -156,31 +188,85 @@ export const Domains: React.FC = () => {
                                             <Globe className="size-5" />
                                         </div>
                                         <div>
-                                            <span className="font-bold text-lg group-hover:text-primary transition-colors block">
-                                                {zone.name}
-                                            </span>
+                                            <div className="flex items-center gap-3 text-lg font-bold group-hover:text-primary transition-colors">
+                                                <span>{zone.name}</span>
+                                                {zone.catalog && (
+                                                    <Badge variant="outline" className="text-[10px] h-4 px-1 lowercase tracking-wider bg-primary/5 text-primary border-primary/20">
+                                                        Catalog: {zone.catalog}
+                                                    </Badge>
+                                                )}
+                                            </div>
                                             <div className="flex gap-2 mt-1">
                                                 {zone.views.map(v => (
-                                                    <Badge key={v} variant={v === 'default' ? 'secondary' : 'default'} className="px-2 py-0">
+                                                    <Badge key={v} variant={v === 'default' ? 'secondary' : 'default'} className="px-2 py-0 text-[10px]">
                                                         {v}
+                                                    </Badge>
+                                                ))}
+                                                {zone.kinds.map(k => (
+                                                    <Badge key={k} variant="outline" className="px-2 py-0 text-[10px] text-muted-foreground border-muted-foreground/30">
+                                                        {k}
                                                     </Badge>
                                                 ))}
                                             </div>
                                         </div>
                                     </Link>
-                                    <div className="flex items-center gap-4 pl-4">
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="text-destructive hover:bg-destructive/10"
-                                            onClick={(e) => handleDeleteZone(zone.ids, zone.name, e)}
-                                            data-testid="delete-zone-btn"
+                                    <div className="flex items-center gap-2 pl-4">
+                                        <Link
+                                            to={`/domains/${encodeURIComponent(zone.name)}`}
+                                            className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-all"
+                                            title="View Details"
                                         >
-                                            <Trash2 className="size-4" />
-                                        </Button>
-                                        <Link to={`/domains/${encodeURIComponent(zone.name)}`} className="text-muted-foreground group-hover:text-primary transition-colors">
-                                            <ExternalLink className="size-5" />
+                                            <ExternalLink className="size-4" />
                                         </Link>
+                                        <div className="relative">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className={cn(
+                                                    "size-9 transition-all hover:bg-accent",
+                                                    activeMenu === zone.name ? "bg-accent text-foreground" : "text-muted-foreground"
+                                                )}
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    setActiveMenu(activeMenu === zone.name ? null : zone.name);
+                                                }}
+                                            >
+                                                <MoreHorizontal className="size-5" />
+                                            </Button>
+
+                                            {activeMenu === zone.name && (
+                                                <>
+                                                    <div className="fixed inset-0 z-40" onClick={() => setActiveMenu(null)} />
+                                                    <div className="absolute right-0 top-full mt-2 w-48 bg-background border border-border rounded-xl shadow-xl z-50 py-1 overflow-hidden animate-in fade-in zoom-in-95 duration-100 origin-top-right">
+                                                        <button
+                                                            className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-left hover:bg-accent transition-colors"
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                e.stopPropagation();
+                                                                setZoneForCatalog(zone);
+                                                                setSelectedCatalog(zone.catalog || '');
+                                                                setActiveMenu(null);
+                                                            }}
+                                                        >
+                                                            <Settings className="size-4 text-muted-foreground" />
+                                                            Set Catalog Zone
+                                                        </button>
+                                                        <div className="h-px bg-border/60 mx-1 my-1" />
+                                                        <button
+                                                            className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-left text-destructive hover:bg-destructive/10 transition-colors"
+                                                            onClick={(e) => {
+                                                                handleDeleteZone(zone.ids, zone.name, e);
+                                                                setActiveMenu(null);
+                                                            }}
+                                                        >
+                                                            <Trash2 className="size-4" />
+                                                            Delete Domain
+                                                        </button>
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             ))}
@@ -233,6 +319,33 @@ export const Domains: React.FC = () => {
                 description={`Are you sure you want to delete domain "${zoneToDelete?.name}"? This will delete all ${zoneToDelete?.ids.length} versions of it across views. This action cannot be undone.`}
                 loading={deleting}
             />
+
+            <Modal isOpen={!!zoneForCatalog} onClose={() => setZoneForCatalog(null)}>
+                <ModalHeader>
+                    <ModalTitle>Update Catalog Zone</ModalTitle>
+                </ModalHeader>
+                <ModalContent className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                        Set the catalog zone for <strong>{zoneForCatalog?.name}</strong>.
+                    </p>
+                    <Select
+                        label="Catalog Zone"
+                        value={selectedCatalog}
+                        onChange={e => setSelectedCatalog(e.target.value)}
+                        block
+                        options={[
+                            { value: '', label: 'None (Unassigned)' },
+                            ...allRawZones.map(z => ({ value: z.name, label: z.name }))
+                        ]}
+                    />
+                </ModalContent>
+                <ModalFooter>
+                    <Button onClick={() => setZoneForCatalog(null)} variant="ghost">Cancel</Button>
+                    <Button variant="primary" disabled={savingCatalog} onClick={handleUpdateCatalog} loading={savingCatalog}>
+                        Update Catalog
+                    </Button>
+                </ModalFooter>
+            </Modal>
         </div >
     );
 };

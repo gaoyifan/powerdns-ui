@@ -19,8 +19,6 @@ export const DomainDetails: React.FC = () => {
     // Edit State
     const [editingRecordKey, setEditingRecordKey] = useState<string | null>(null);
 
-
-
     // Record Creation State
     const [isAddingRecord, setIsAddingRecord] = useState(false);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);

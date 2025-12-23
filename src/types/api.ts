@@ -19,6 +19,7 @@ export interface Zone {
   nameservers?: string[];
   master_tsig_key_ids?: string[];
   slave_tsig_key_ids?: string[];
+  catalog?: string;
 }
 
 export interface RRSet {

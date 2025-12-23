@@ -29,3 +29,6 @@ dist-ssr
 # docs for reference
 docs/pdns/
 docs/just.md
+
+# Serena
+.serena/

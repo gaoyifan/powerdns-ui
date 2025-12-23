@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { pdns } from '../api/pdns';
-
 import type { RecordWithView } from '../types/domain';
 import { parseZoneId } from '../utils/zoneUtils';
 
@@ -16,13 +15,13 @@ export const useDomainRecords = (domainName: string | undefined) => {
         setError(null);
         try {
             // 1. Fetch ALL zones and views
-            const [allZones, viewsRes] = await Promise.all([
+            const [fetchedZones, viewsRes] = await Promise.all([
                 pdns.getZones(),
                 pdns.getViews().catch(() => ({ views: [] }))
             ]);
 
             // 2. Identify relevant zones for this domain
-            const relevantZones = allZones.filter(z => {
+            const relevantZones = fetchedZones.filter(z => {
                 const parsed = parseZoneId(z.id);
                 return parsed.name === domainName || parsed.name === domainName + '.';
             });
@@ -36,6 +35,7 @@ export const useDomainRecords = (domainName: string | undefined) => {
                 const { view } = parseZoneId(zone.id);
                 try {
                     const detailedZone = await pdns.getZone(zone.id);
+
                     return (detailedZone.rrsets || []).flatMap(rr =>
                         rr.records.map(record => ({
                             name: rr.name,

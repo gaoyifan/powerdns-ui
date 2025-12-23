@@ -40,6 +40,13 @@ export const pdns = {
         });
     },
 
+    updateZone: async (zoneId: string, updates: Partial<Zone>) => {
+        return apiClient.request(`/servers/localhost/zones/${zoneId}`, {
+            method: 'PUT',
+            body: JSON.stringify(updates)
+        });
+    },
+
     // Views
     getViews: async () => {
         return apiClient.request<{ views: string[] }>('/servers/localhost/views');
