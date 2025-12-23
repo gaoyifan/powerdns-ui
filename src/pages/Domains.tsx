@@ -326,7 +326,6 @@ export const Domains: React.FC = () => {
                             { value: 'Native', label: 'Native' },
                             { value: 'Master', label: 'Master' },
                             { value: 'Slave', label: 'Slave' },
-                            { value: 'Slave', label: 'Slave' },
                         ]}
                     />
                 </ModalContent>
@@ -371,7 +370,6 @@ export const Domains: React.FC = () => {
                         options={[
                             { value: 'Native', label: 'Native' },
                             { value: 'Master', label: 'Master' },
-                            { value: 'Slave', label: 'Slave' },
                             { value: 'Slave', label: 'Slave' },
                         ]}
                     />
