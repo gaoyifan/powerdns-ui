@@ -32,6 +32,7 @@ export const ImportZoneModal: React.FC<ImportZoneModalProps> = ({
     const [isImporting, setIsImporting] = useState(false);
     const [previewRecords, setPreviewRecords] = useState<ParsedRecord[]>([]);
     const [error, setError] = useState<string | null>(null);
+    const [ignoredCount, setIgnoredCount] = useState(0);
 
     const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const text = e.target.value;
@@ -43,6 +44,7 @@ export const ImportZoneModal: React.FC<ImportZoneModalProps> = ({
     const parseAndPreview = (text: string) => {
         if (!text.trim()) {
             setPreviewRecords([]);
+            setIgnoredCount(0);
             return;
         }
 
@@ -69,12 +71,23 @@ export const ImportZoneModal: React.FC<ImportZoneModalProps> = ({
             const recordTypes = ['a', 'aaaa', 'cname', 'mx', 'txt', 'ns', 'srv', 'ptr', 'spf', 'caa'];
 
             // Default TTL from zonefile or fallback
-            const defaultTTL = parsed.$ttl || 3600;
+            const defaultTTL = (parsed as any).$ttl || 3600;
+            const dotDomain = domainName.endsWith('.') ? domainName.toLowerCase() : (domainName + '.').toLowerCase();
+            let ignored = 0;
 
             recordTypes.forEach(type => {
                 const zoneData = parsed as any;
                 if (zoneData[type] && Array.isArray(zoneData[type])) {
                     zoneData[type].forEach((r: any) => {
+                        const normalizedName = normalizeName(r.name);
+                        const lowerName = normalizedName.toLowerCase();
+
+                        // Ignore out-of-zone data
+                        if (lowerName !== dotDomain && !lowerName.endsWith('.' + dotDomain)) {
+                            ignored++;
+                            return;
+                        }
+
                         let content = '';
                         if (type === 'a') content = r.ip;
                         else if (type === 'aaaa') content = r.ip;
@@ -91,7 +104,7 @@ export const ImportZoneModal: React.FC<ImportZoneModalProps> = ({
                         else if (type === 'caa') content = `${r.flags} ${r.tag} "${r.value}"`;
 
                         records.push({
-                            name: normalizeName(r.name),
+                            name: normalizedName,
                             type: type.toUpperCase(),
                             ttl: r.ttl || defaultTTL,
                             content: normalizeContent(content, type.toUpperCase())
@@ -101,6 +114,7 @@ export const ImportZoneModal: React.FC<ImportZoneModalProps> = ({
             });
 
             setPreviewRecords(records);
+            setIgnoredCount(ignored);
         } catch (err) {
             console.error('Parse error:', err);
             // We don't necessarily want to show an error on every keystroke if it's partial
@@ -167,6 +181,17 @@ export const ImportZoneModal: React.FC<ImportZoneModalProps> = ({
                         <div className="flex items-center gap-2">
                             <AlertCircle className="size-4 shrink-0" />
                             <span className="text-xs">{error}</span>
+                        </div>
+                    </Flash>
+                )}
+
+                {ignoredCount > 0 && (
+                    <Flash variant="warning" className="py-2 px-3">
+                        <div className="flex items-center gap-2">
+                            <Info className="size-4 shrink-0" />
+                            <span className="text-xs">
+                                {ignoredCount} record{ignoredCount > 1 ? 's' : ''} ignored because they are outside of <strong>{domainName}</strong>.
+                            </span>
                         </div>
                     </Flash>
                 )}

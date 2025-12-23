@@ -323,30 +323,21 @@ export const DomainDetails: React.FC = () => {
     const handleImportRecords = async (records: ParsedRecord[], view: string) => {
         if (!domainName) return;
         try {
-            const rrsetsMap: Record<string, { name: string, type: string, ttl: number, records: { content: string, disabled: boolean }[] }> = {};
-
-            records.forEach(r => {
-                const key = `${r.name}-${r.type}`;
-                if (!rrsetsMap[key]) {
-                    rrsetsMap[key] = {
-                        name: r.name,
-                        type: r.type,
-                        ttl: r.ttl,
-                        records: []
-                    };
-                }
-                rrsetsMap[key].records.push({
-                    content: formatRecordContent(r.content, r.type),
-                    disabled: false
-                });
-            });
-
             const targetZoneId = await zoneService.ensureZoneExists(domainName, view);
 
-            await zoneService.patchZone(targetZoneId, Object.values(rrsetsMap).map(rrset => ({
-                ...rrset,
-                changetype: 'EXTEND'
-            })));
+            // PowerDNS requires exactly one record for EXTEND/PRUNE operations
+            const ops = records.map(r => ({
+                name: r.name,
+                type: r.type,
+                ttl: r.ttl,
+                changetype: 'EXTEND' as const,
+                records: [{
+                    content: formatRecordContent(r.content, r.type),
+                    disabled: false
+                }]
+            }));
+
+            await zoneService.patchZone(targetZoneId, ops);
 
             setIsImportModalOpen(false);
             refetch();
