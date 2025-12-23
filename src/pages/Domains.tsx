@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Globe, ExternalLink, Activity, Server, Layers, Trash2, MoreHorizontal, Settings } from 'lucide-react';
+import { Plus, Globe, ExternalLink, Activity, Server, Layers, Trash2, MoreHorizontal } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { pdns } from '../api/pdns';
 import { useZones } from '../hooks/useZones';
@@ -30,6 +30,11 @@ export const Domains: React.FC = () => {
 
     // Dropdown State
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
+
+    // Kind Modal State
+    const [zoneForKind, setZoneForKind] = useState<UnifiedZone | null>(null);
+    const [selectedKind, setSelectedKind] = useState('');
+    const [savingKind, setSavingKind] = useState(false);
 
     const handleCreateZone = async () => {
         if (!newZoneName) return;
@@ -89,6 +94,27 @@ export const Domains: React.FC = () => {
             });
         } finally {
             setDeleting(false);
+        }
+    };
+
+    const handleUpdateKind = async () => {
+        if (!zoneForKind) return;
+        setSavingKind(true);
+        try {
+            // Update all versions of the zone to have the same kind
+            await Promise.all(zoneForKind.ids.map(id => pdns.updateZone(id, { kind: selectedKind as any })));
+
+            notify({ type: 'success', title: 'Kind Updated', message: `Zone kind for ${zoneForKind.name} updated successfully.` });
+            setZoneForKind(null);
+            refetch();
+        } catch (err: unknown) {
+            notify({
+                type: 'error',
+                title: 'Update Failed',
+                message: err instanceof Error ? err.message : 'Unknown error'
+            });
+        } finally {
+            setSavingKind(false);
         }
     };
 
@@ -214,7 +240,17 @@ export const Domains: React.FC = () => {
                                                     </Badge>
                                                 ))}
                                                 {zone.kinds.map(k => (
-                                                    <Badge key={k} variant="outline" className="bg-muted/30 text-muted-foreground border-border/50 flex items-center gap-1 h-5 px-2 text-[10px] font-medium">
+                                                    <Badge
+                                                        key={k}
+                                                        variant="outline"
+                                                        className="bg-muted/30 text-muted-foreground border-border/50 flex items-center gap-1 h-5 px-2 text-[10px] font-medium cursor-pointer hover:bg-accent transition-colors"
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            setZoneForKind(zone);
+                                                            setSelectedKind(k);
+                                                        }}
+                                                    >
                                                         <Server className="size-3 opacity-70" />
                                                         <span className="opacity-70 capitalize">Kind</span>
                                                         <span className="opacity-40 ml-0.5 pl-1 border-l border-muted-foreground/30 uppercase font-bold">{k}</span>
@@ -262,8 +298,21 @@ export const Domains: React.FC = () => {
                                                                 setActiveMenu(null);
                                                             }}
                                                         >
-                                                            <Settings className="size-4 text-muted-foreground" />
+                                                            <Layers className="size-4 text-muted-foreground" />
                                                             Set Catalog Zone
+                                                        </button>
+                                                        <button
+                                                            className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-left hover:bg-accent transition-colors"
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                e.stopPropagation();
+                                                                setZoneForKind(zone);
+                                                                setSelectedKind(zone.kinds[0] || 'Native');
+                                                                setActiveMenu(null);
+                                                            }}
+                                                        >
+                                                            <Server className="size-4 text-muted-foreground" />
+                                                            Set Zone Kind
                                                         </button>
                                                         <div className="h-px bg-border/60 mx-1 my-1" />
                                                         <button
@@ -312,6 +361,8 @@ export const Domains: React.FC = () => {
                             { value: 'Native', label: 'Native' },
                             { value: 'Master', label: 'Master' },
                             { value: 'Slave', label: 'Slave' },
+                            { value: 'Producer', label: 'Producer' },
+                            { value: 'Consumer', label: 'Consumer' },
                         ]}
                     />
                 </ModalContent>
@@ -356,6 +407,35 @@ export const Domains: React.FC = () => {
                     <Button onClick={() => setZoneForCatalog(null)} variant="ghost">Cancel</Button>
                     <Button variant="primary" disabled={savingCatalog} onClick={handleUpdateCatalog} loading={savingCatalog}>
                         Update Catalog
+                    </Button>
+                </ModalFooter>
+            </Modal>
+            <Modal isOpen={!!zoneForKind} onClose={() => setZoneForKind(null)}>
+                <ModalHeader>
+                    <ModalTitle>Update Zone Kind</ModalTitle>
+                </ModalHeader>
+                <ModalContent className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                        Set the replication kind for <strong>{zoneForKind?.name}</strong>.
+                    </p>
+                    <Select
+                        label="Zone Kind"
+                        value={selectedKind}
+                        onChange={e => setSelectedKind(e.target.value)}
+                        block
+                        options={[
+                            { value: 'Native', label: 'Native' },
+                            { value: 'Master', label: 'Master' },
+                            { value: 'Slave', label: 'Slave' },
+                            { value: 'Producer', label: 'Producer' },
+                            { value: 'Consumer', label: 'Consumer' },
+                        ]}
+                    />
+                </ModalContent>
+                <ModalFooter>
+                    <Button onClick={() => setZoneForKind(null)} variant="ghost">Cancel</Button>
+                    <Button variant="primary" disabled={savingKind} onClick={handleUpdateKind} loading={savingKind}>
+                        Update Kind
                     </Button>
                 </ModalFooter>
             </Modal>
