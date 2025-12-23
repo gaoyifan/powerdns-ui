@@ -3,6 +3,7 @@ import { Outlet, useLocation, Link, useNavigate } from 'react-router-dom';
 import { Globe, List, LogOut, Bell } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/Button';
+import { Logo } from '../components/Logo';
 import { cn } from '../lib/utils';
 
 interface NavItem {
@@ -32,13 +33,11 @@ export const MainLayout: React.FC = () => {
             {/* Header */}
             <header className="border-border/80 bg-background/80 sticky top-0 z-40 border-b backdrop-blur">
                 <div className="flex items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
-                    <Link to="/" className="flex items-center gap-4">
-                        <div className="bg-primary/10 text-primary flex h-10 w-10 items-center justify-center rounded-lg text-lg font-semibold shadow-sm">
-                            P
-                        </div>
+                    <Link to="/" className="flex items-center gap-3">
+                        <Logo size={40} className="text-primary drop-shadow-sm" />
                         <div className="flex flex-col leading-tight">
-                            <span className="text-sm font-semibold tracking-tight">PowerDNS UI</span>
-                            <span className="text-muted-foreground text-xs">v5 Management</span>
+                            <span className="text-lg font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">PowerDNS UI</span>
+                            <span className="text-muted-foreground text-[10px] font-medium uppercase tracking-wider">v5 Management System</span>
                         </div>
                     </Link>
 

@@ -11,3 +11,4 @@ export { Loading } from './Loading';
 export { EmptyState } from './EmptyState';
 export { DeleteConfirmationModal } from './DeleteConfirmationModal';
 export * from './ImportZoneModal';
+export { Logo } from './Logo';

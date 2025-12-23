@@ -3,6 +3,7 @@ import { API_BASE_URL } from '../constants';
 import { Key } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { Logo } from '../components/Logo';
 import { Button, Input, Card, CardHeader, CardTitle, CardDescription, CardContent, Flash } from '../components';
 
 export const Login: React.FC = () => {
@@ -39,12 +40,18 @@ export const Login: React.FC = () => {
     return (
         <div className="flex justify-center items-center min-h-screen bg-muted/30">
             <Card className="w-full max-w-md shadow-lg border-border/80 bg-background/80 backdrop-blur">
-                <CardHeader className="text-center space-y-2">
-                    <div className="mx-auto bg-primary/10 text-primary flex h-12 w-12 items-center justify-center rounded-xl text-2xl font-bold shadow-sm mb-2">
-                        P
+                <CardHeader className="text-center space-y-4">
+                    <div className="mx-auto flex justify-center">
+                        <Logo size={64} className="text-primary drop-shadow-md" />
                     </div>
-                    <CardTitle className="text-2xl">PowerDNS Admin</CardTitle>
-                    <CardDescription>Enter your API Key to access the control plane</CardDescription>
+                    <div>
+                        <CardTitle className="text-3xl font-extrabold tracking-tight bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text text-transparent">
+                            PowerDNS UI
+                        </CardTitle>
+                        <CardDescription className="text-sm font-medium uppercase tracking-widest mt-1">
+                            v5 Management System
+                        </CardDescription>
+                    </div>
                 </CardHeader>
 
                 <CardContent>
