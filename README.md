@@ -29,6 +29,10 @@ PowerDNS UI is a modern, fast, and feature-rich single-page application (SPA) de
     - Advanced Metadata: Uses MessagePack binary encoding to store structured metadata (type, content, comment) within PowerDNS TYPE65534 records.
     ![Domain Details with Comments](docs/screenshots/domain_details.png)
 - **Zone File Import**: Bulk import records from BIND-style zone files using an intuitive modal with preview capabilities.
+- **Sidecar Syncer (Optional)**: 
+    - Configuration-driven view and network mapping management via YAML.
+    - Support for fetching network lists from remote URLs.
+    - Automatic cleanup of orphan views and mappings.
 - **Extensive Record Support**: Support for A, AAAA, ALIAS, CAA, CNAME, DNAME, HTTPS, MX, NAPTR, NS, PTR, SOA, SPF, SRV, SSHFP, SVCB, TLSA, and TXT.
 - **Modern UI and UX**:
     - Responsive design powered by Tailwind CSS.
@@ -71,6 +75,12 @@ This repository includes a pre-configured PowerDNS primary/secondary environment
    - Automatically discover container IPs and configure Catalog Zone replication.
    - Run a replication test to ensure everything is wired correctly.
 
+3. **Optional Configuration Sync**:
+   To start the automatic view/network syncer:
+   ```bash
+   docker compose --profile sync up -d
+   ```
+
 ### Manual Installation
 
 1. Clone the repository:
@@ -99,6 +109,23 @@ PDNS_SECONDARY_NETWORK_MODE=host
 
 ### Dynamic IP Discovery
 The orchestration logic automatically sniffs container IPs and updates NS/A records in the zones. No static IP management is required in the `.env` file for standard Docker Bridge deployments.
+
+### Sidecar Configuration
+The `pdns-view-syncer` sidecar allows you to manage views and networks via `deploy/config/views.yml`.
+
+Example configuration:
+```yaml
+managed_only: true # Caution: unmaps networks and drops views NOT in this file
+
+views:
+  trusted:
+    priority: 100
+    networks:
+      - 10.0.0.0/8
+  cernet:
+    url: "https://china-operator-ip.yfgao.com/cernet46.txt"
+```
+The syncer respects priorities and handles IPv4/IPv6 CIDRs fetched from the provided URLs.
 
 ## Testing & Quality
 

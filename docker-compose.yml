@@ -14,7 +14,7 @@ services:
       - pdns-primary-data:/var/lib/powerdns
       - ./pdns.conf:/etc/powerdns/pdns.conf:ro
       - ./deploy/zones:/zones:ro
-    command: [ "--primary" ]
+    command: [ "--primary", "--api-key=${PDNS_API_KEY:-secret}" ]
     healthcheck:
       test: [ "CMD-SHELL", "pdns_control rping >/dev/null 2>&1 || exit 1" ]
       interval: 2s
@@ -33,7 +33,7 @@ services:
       - pdns-secondary-data:/var/lib/powerdns
       - ./pdns.conf:/etc/powerdns/pdns.conf:ro
       - ./deploy/zones:/zones:ro
-    command: [ "--secondary" ]
+    command: [ "--secondary", "--api-key=${PDNS_API_KEY:-secret}" ]
     healthcheck:
       test: [ "CMD-SHELL", "pdns_control rping >/dev/null 2>&1 || exit 1" ]
       interval: 2s
@@ -58,6 +58,24 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./deploy/sidecar:/sidecar:ro
     command: [ "uv", "run", "--with", "docker", "/sidecar/tsig-activator.py" ]
+
+  # Sidecar: Synchronizes views and networks from YAML config
+  pdns-view-syncer:
+    container_name: pdns-view-syncer-1
+    profiles: [ "sync" ]
+    image: ghcr.io/astral-sh/uv:python3.13-alpine
+    restart: unless-stopped
+    env_file:
+      - ./.env
+    environment:
+      PDNS_API_URL: http://localhost:8081/api/v1
+      PDNS_API_KEY: ${PDNS_API_KEY:-secret}
+      SYNC_CONFIG_PATH: /config/views.yml
+    network_mode: "container:${SYNC_TARGET_CONTAINER:-pdns-primary-pdns-1}"
+    volumes:
+      - ./deploy/sidecar:/sidecar:ro
+      - ./deploy/config:/config:ro
+    command: [ "uv", "run", "--with", "pyyaml", "--with", "httpx", "/sidecar/view-syncer.py" ]
 
   ui:
     build: .

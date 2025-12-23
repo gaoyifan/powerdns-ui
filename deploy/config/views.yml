@@ -1,0 +1,19 @@
+# View Sync Configuration
+managed_only: true
+
+views:
+  cernet:
+    priority: 10
+    url: "https://china-operator-ip.yfgao.com/cernet46.txt"
+  cmcc:
+    priority: 10
+    url: "https://china-operator-ip.yfgao.com/cmcc46.txt"
+  chinanet:
+    priority: 10
+    url: "https://china-operator-ip.yfgao.com/chinanet46.txt"
+  unicom:
+    priority: 10
+    url: "https://china-operator-ip.yfgao.com/unicom46.txt"
+  china:
+    priority: 5
+    url: "https://china-operator-ip.yfgao.com/china46.txt"

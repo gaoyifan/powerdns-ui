@@ -15,13 +15,17 @@ primary:
 secondary:
   docker compose --profile secondary up -d --wait
 
+# Bring up view/network syncer.
+sync:
+  docker compose --profile sync up -d --wait
+
 # Stop containers (keeps volumes).
 down:
-  docker compose --profile primary --profile secondary down
+  docker compose --profile "*" down
 
 # Stop containers and remove volumes (destroys LMDB state).
 clean:
-  docker compose --profile primary --profile secondary down -v
+  docker compose --profile "*" down -v
 
 # Configure Catalog Zone + TSIG sync.
 init: init-secondary init-primary
