@@ -6,6 +6,10 @@ alias p := primary
 alias s := secondary
 alias sy := sync
 
+# Format code using Prettier.
+fmt:
+  npx prettier --write "src/**/*.{ts,tsx,css}"
+
 # Bring up all nodes and initialize components.
 dev: primary secondary init
 
