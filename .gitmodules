@@ -1,3 +1,0 @@
-[submodule "pdns"]
-	path = pdns
-	url = https://github.com/PowerDNS/pdns.git
