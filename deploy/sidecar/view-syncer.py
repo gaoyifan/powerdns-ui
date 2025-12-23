@@ -106,21 +106,30 @@ def sync():
             client.post(f"{API_URL}/servers/localhost/views/{view_name}", json={"name": f"..{view_name}"})
 
     # 3. Reconcile Networks
+    stats = {} # {view_name: count}
     for net, view in desired_net_map.items():
         if current_net_map.get(net) != view:
-            log(f"Sync: {net} -> {view}")
+            stats[view] = stats.get(view, 0) + 1
             client.put(f"{API_URL}/servers/localhost/networks/{net}", json={"view": view})
 
     # 4. Managed Deletions
+    cleanup_stats = {} # {old_view: count}
     if managed_only:
         for net, view in current_net_map.items():
             if view != "default" and net not in desired_net_map:
-                log(f"Cleanup net: {net}")
+                cleanup_stats[view] = cleanup_stats.get(view, 0) + 1
                 client.put(f"{API_URL}/servers/localhost/networks/{net}", json={"view": "default"})
         
         for view_name in current_views:
             if view_name != "default" and view_name not in views_config:
                 delete_view(view_name)
+                
+    if stats:
+        view_summary = ", ".join(f"{v}: {c}" for v, c in sorted(stats.items()))
+        log(f"Updates: {view_summary}")
+    if cleanup_stats:
+        cleanup_summary = ", ".join(f"{v}: {c}" for v, c in sorted(cleanup_stats.items()))
+        log(f"Cleaned (to default): {cleanup_summary}")
 
 if __name__ == "__main__":
     log(f"Started. Interval: {INTERVAL}s")
