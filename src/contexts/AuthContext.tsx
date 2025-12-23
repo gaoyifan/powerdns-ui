@@ -26,11 +26,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setApiKey(null);
     };
 
-    return (
-        <AuthContext.Provider value={{ apiKey, user, isAuthenticated: !!apiKey, login, logout }}>
-            {children}
-        </AuthContext.Provider>
-    );
+    return <AuthContext.Provider value={{ apiKey, user, isAuthenticated: !!apiKey, login, logout }}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => {

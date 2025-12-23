@@ -8,7 +8,6 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { NotificationProvider } from '../contexts/NotificationContext';
 import { AuthProvider } from '../contexts/AuthContext';
 
-
 // Configure API for test environment
 const TEST_API_KEY = 'secret';
 const TEST_BASE_URL = 'http://127.0.0.1:8081/api/v1';
@@ -25,7 +24,7 @@ describe('DomainDetails Page (Live API)', () => {
             await pdns.createZone({
                 name: testZoneName,
                 kind: 'Native',
-                nameservers: ['ns1.example.com.']
+                nameservers: ['ns1.example.com.'],
             });
             // Add some initial records
             await pdns.patchZone(testZoneName, [
@@ -34,15 +33,15 @@ describe('DomainDetails Page (Live API)', () => {
                     type: 'A',
                     ttl: 300,
                     changetype: 'REPLACE',
-                    records: [{ content: '192.168.1.1', disabled: false }]
+                    records: [{ content: '192.168.1.1', disabled: false }],
                 },
                 {
                     name: 'api.' + testZoneName,
                     type: 'A',
                     ttl: 300,
                     changetype: 'REPLACE',
-                    records: [{ content: '192.168.1.2', disabled: false }]
-                }
+                    records: [{ content: '192.168.1.2', disabled: false }],
+                },
             ]);
         } catch (e) {
             console.error('Failed to setup test zone', e);
@@ -69,10 +68,9 @@ describe('DomainDetails Page (Live API)', () => {
                         </Routes>
                     </MemoryRouter>
                 </NotificationProvider>
-            </AuthProvider>
+            </AuthProvider>,
         );
     };
-
 
     it('fetches and displays domain records', async () => {
         renderWithRouter();
@@ -126,7 +124,7 @@ describe('DomainDetails Page (Live API)', () => {
 
             // Check details
             const zone = await pdns.getZone(testZoneName);
-            const rrset = zone.rrsets.find(r => r.name === newRecordName && r.type === 'A');
+            const rrset = zone.rrsets.find((r) => r.name === newRecordName && r.type === 'A');
             expect(rrset).toBeDefined();
             expect(rrset?.records[0].content).toBe('10.0.0.1');
         });
@@ -159,7 +157,7 @@ describe('DomainDetails Page (Live API)', () => {
 
             // Verify backend
             const zone = await pdns.getZone(testZoneName);
-            const rrset = zone.rrsets.find(r => r.name === recordName && r.type === 'A');
+            const rrset = zone.rrsets.find((r) => r.name === recordName && r.type === 'A');
             expect(rrset?.records[0].content).toBe('10.10.10.10');
         });
     });
@@ -183,7 +181,7 @@ describe('DomainDetails Page (Live API)', () => {
         const modal = modalHeading.closest('[class*="fixed"]');
 
         const modalButtons = within(modal as HTMLElement).getAllByRole('button');
-        const confirmBtn = modalButtons.find(btn => btn.textContent === 'Delete');
+        const confirmBtn = modalButtons.find((btn) => btn.textContent === 'Delete');
 
         await user.click(confirmBtn!);
 
@@ -192,7 +190,7 @@ describe('DomainDetails Page (Live API)', () => {
 
             // Verify backend
             const zone = await pdns.getZone(testZoneName);
-            const rrset = zone.rrsets.find(r => r.name === recordToDelete && r.type === 'A');
+            const rrset = zone.rrsets.find((r) => r.name === recordToDelete && r.type === 'A');
             // It might exist if there are other records, but for this specific A record it should be gone or empty
             expect(rrset).toBeUndefined();
         });
@@ -208,7 +206,7 @@ describe('DomainDetails Page (Live API)', () => {
         await user.type(searchInput, 'www');
 
         expect(screen.getByText('www.' + testZoneName)).toBeInTheDocument();
-        // createZone setup added 'api' record, but we might have deleted it in previous test. 
+        // createZone setup added 'api' record, but we might have deleted it in previous test.
         // Best to rely on what we know exists (www).
         // Let's ensure strict filtering.
     });
@@ -242,7 +240,7 @@ describe('DomainDetails Page (Live API)', () => {
             expect(screen.getByText('"some text content"')).toBeInTheDocument();
 
             const zone = await pdns.getZone(testZoneName);
-            const rrset = zone.rrsets.find(r => r.name === txtName && r.type === 'TXT');
+            const rrset = zone.rrsets.find((r) => r.name === txtName && r.type === 'TXT');
             expect(rrset?.records[0].content).toBe('"some text content"');
         });
     });

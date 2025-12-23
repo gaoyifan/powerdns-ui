@@ -5,7 +5,21 @@ import { zoneService } from '../api/zoneService';
 import type { RRSet } from '../types/api';
 import type { RecordWithView } from '../types/domain';
 import { useDomainRecords } from '../hooks/useDomainRecords';
-import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Flash, Input, Badge, InlineEditRow, Loading, ImportZoneModal, type ParsedRecord } from '../components';
+import {
+    Button,
+    Card,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+    CardContent,
+    Flash,
+    Input,
+    Badge,
+    InlineEditRow,
+    Loading,
+    ImportZoneModal,
+    type ParsedRecord,
+} from '../components';
 import { useNotification } from '../contexts/NotificationContext';
 import { cn } from '../lib/utils';
 import { formatRecordContent, normalizeRecordName, filterRedundantRRSets } from '../utils/recordUtils';
@@ -33,7 +47,7 @@ export const DomainDetails: React.FC = () => {
         // Map of "name|view" -> Array of { type: string, content: string, comment: string }
         const rdataMeta = new Map<string, any[]>();
 
-        rawRecords.forEach(r => {
+        rawRecords.forEach((r) => {
             if (r.type === COMMENT_RR_TYPE) {
                 const data = decodeMetadata(r.content);
                 if (data && typeof data === 'object') {
@@ -46,22 +60,22 @@ export const DomainDetails: React.FC = () => {
 
         // 2. Map normal records and attach specific comments
         return rawRecords
-            .filter(r => r.type !== COMMENT_RR_TYPE)
-            .map(r => {
+            .filter((r) => r.type !== COMMENT_RR_TYPE)
+            .map((r) => {
                 const key = `${r.name}|${r.view}`;
                 const metas = rdataMeta.get(key) || [];
                 // Find comment that matches this specific record's type and content
-                const matchedMeta = metas.find(m => m.type === r.type && m.content === r.content);
+                const matchedMeta = metas.find((m) => m.type === r.type && m.content === r.content);
 
                 return {
                     ...r,
-                    comments: matchedMeta?.comment ? [{ content: matchedMeta.comment }] : []
+                    comments: matchedMeta?.comment ? [{ content: matchedMeta.comment }] : [],
                 };
             });
     }, [rawRecords]);
 
     const filteredRecords = (unifiedRecords || [])
-        .filter(record => {
+        .filter((record) => {
             const query = searchQuery.toLowerCase();
             return (
                 record.name.toLowerCase().includes(query) ||
@@ -84,7 +98,10 @@ export const DomainDetails: React.FC = () => {
             return 0;
         });
 
-    const handleSaveRecord = async (original: RecordWithView, data: { name: string; type: string; ttl: number; content: string; view: string; comments: string[] }) => {
+    const handleSaveRecord = async (
+        original: RecordWithView,
+        data: { name: string; type: string; ttl: number; content: string; view: string; comments: string[] },
+    ) => {
         if (!domainName) return;
         try {
             const formattedContent = formatRecordContent(data.content, data.type);
@@ -92,13 +109,15 @@ export const DomainDetails: React.FC = () => {
 
             if (isIdentityChanged) {
                 // 1. Handle Old Record: Remove it and its specific comment
-                const oldOps: any[] = [{
-                    name: original.name,
-                    type: original.type,
-                    ttl: original.ttl,
-                    changetype: 'PRUNE',
-                    records: [{ content: original.content }]
-                }];
+                const oldOps: any[] = [
+                    {
+                        name: original.name,
+                        type: original.type,
+                        ttl: original.ttl,
+                        changetype: 'PRUNE',
+                        records: [{ content: original.content }],
+                    },
+                ];
 
                 if (original.comments.length > 0) {
                     oldOps.push({
@@ -106,7 +125,7 @@ export const DomainDetails: React.FC = () => {
                         type: COMMENT_RR_TYPE,
                         ttl: original.ttl,
                         changetype: 'PRUNE',
-                        records: [{ content: encodeMetadata({ type: original.type, content: original.content, comment: original.comments[0].content }) }]
+                        records: [{ content: encodeMetadata({ type: original.type, content: original.content, comment: original.comments[0].content }) }],
                     });
                 }
                 await zoneService.patchZone(original.zoneId, oldOps);
@@ -115,13 +134,15 @@ export const DomainDetails: React.FC = () => {
                 const targetZoneId = await zoneService.ensureZoneExists(domainName, data.view);
                 const newRrName = normalizeRecordName(data.name, domainName);
 
-                const newOps: any[] = [{
-                    name: newRrName,
-                    type: data.type,
-                    ttl: data.ttl,
-                    changetype: 'EXTEND',
-                    records: [{ content: formattedContent }]
-                }];
+                const newOps: any[] = [
+                    {
+                        name: newRrName,
+                        type: data.type,
+                        ttl: data.ttl,
+                        changetype: 'EXTEND',
+                        records: [{ content: formattedContent }],
+                    },
+                ];
 
                 if (data.comments.length > 0) {
                     newOps.push({
@@ -129,11 +150,10 @@ export const DomainDetails: React.FC = () => {
                         type: COMMENT_RR_TYPE,
                         ttl: data.ttl,
                         changetype: 'EXTEND',
-                        records: [{ content: encodeMetadata({ type: data.type, content: formattedContent, comment: data.comments[0] }) }]
+                        records: [{ content: encodeMetadata({ type: data.type, content: formattedContent, comment: data.comments[0] }) }],
                     });
                 }
                 await zoneService.patchZone(targetZoneId, newOps);
-
             } else {
                 // Same Identity (Update TTL, Content, Comments)
                 const ops: any[] = [];
@@ -145,14 +165,14 @@ export const DomainDetails: React.FC = () => {
                         type: original.type,
                         ttl: original.ttl,
                         changetype: 'PRUNE',
-                        records: [{ content: original.content }]
+                        records: [{ content: original.content }],
                     });
                     ops.push({
                         name: data.name,
                         type: data.type,
                         ttl: data.ttl,
                         changetype: 'EXTEND',
-                        records: [{ content: formattedContent }]
+                        records: [{ content: formattedContent }],
                     });
                 } else if (data.ttl !== original.ttl) {
                     // Update TTL for all records in RRSet
@@ -162,8 +182,8 @@ export const DomainDetails: React.FC = () => {
                         ttl: data.ttl,
                         changetype: 'REPLACE',
                         records: unifiedRecords
-                            .filter(r => r.name === original.name && r.type === original.type && r.view === original.view)
-                            .map(r => ({ content: r.content, disabled: r.disabled }))
+                            .filter((r) => r.name === original.name && r.type === original.type && r.view === original.view)
+                            .map((r) => ({ content: r.content, disabled: r.disabled })),
                     });
                 }
 
@@ -178,7 +198,7 @@ export const DomainDetails: React.FC = () => {
                             type: COMMENT_RR_TYPE,
                             ttl: original.ttl,
                             changetype: 'PRUNE',
-                            records: [{ content: encodeMetadata({ type: original.type, content: original.content, comment: oldComment }) }]
+                            records: [{ content: encodeMetadata({ type: original.type, content: original.content, comment: oldComment }) }],
                         });
                     }
                     if (newComment) {
@@ -187,7 +207,7 @@ export const DomainDetails: React.FC = () => {
                             type: COMMENT_RR_TYPE,
                             ttl: data.ttl,
                             changetype: 'EXTEND',
-                            records: [{ content: encodeMetadata({ type: data.type, content: formattedContent, comment: newComment }) }]
+                            records: [{ content: encodeMetadata({ type: data.type, content: formattedContent, comment: newComment }) }],
                         });
                     }
                 }
@@ -204,26 +224,22 @@ export const DomainDetails: React.FC = () => {
             notify({
                 type: 'error',
                 title: 'Update Failed',
-                message: err instanceof Error ? err.message : 'Unknown error'
+                message: err instanceof Error ? err.message : 'Unknown error',
             });
         }
     };
 
-
     const handleToggleDisabled = async (record: RecordWithView) => {
         try {
             // Find sibling records in the same RRSet
-            const siblingRecords = unifiedRecords.filter(r =>
-                r.name === record.name &&
-                r.type === record.type &&
-                r.view === record.view &&
-                r.content !== record.content
+            const siblingRecords = unifiedRecords.filter(
+                (r) => r.name === record.name && r.type === record.type && r.view === record.view && r.content !== record.content,
             );
 
             // Construct new records payload with the toggled state
             const newRecordsPayload = [
-                ...siblingRecords.map(r => ({ content: r.content, disabled: r.disabled })),
-                { content: record.content, disabled: !record.disabled }
+                ...siblingRecords.map((r) => ({ content: r.content, disabled: r.disabled })),
+                { content: record.content, disabled: !record.disabled },
             ];
 
             const rrset: RRSet = {
@@ -231,7 +247,7 @@ export const DomainDetails: React.FC = () => {
                 type: record.type,
                 ttl: record.ttl,
                 changetype: 'REPLACE',
-                records: newRecordsPayload
+                records: newRecordsPayload,
             };
 
             await zoneService.patchZone(record.zoneId, [rrset]);
@@ -241,20 +257,22 @@ export const DomainDetails: React.FC = () => {
             notify({
                 type: 'error',
                 title: 'Operation Failed',
-                message: (err instanceof Error ? err.message : 'Unknown error')
+                message: err instanceof Error ? err.message : 'Unknown error',
             });
         }
     };
 
     const handleDeleteRecord = async (record: RecordWithView) => {
         try {
-            const ops: any[] = [{
-                name: record.name,
-                type: record.type,
-                ttl: record.ttl,
-                changetype: 'PRUNE',
-                records: [{ content: record.content }]
-            }];
+            const ops: any[] = [
+                {
+                    name: record.name,
+                    type: record.type,
+                    ttl: record.ttl,
+                    changetype: 'PRUNE',
+                    records: [{ content: record.content }],
+                },
+            ];
 
             if (record.comments.length > 0) {
                 ops.push({
@@ -262,7 +280,7 @@ export const DomainDetails: React.FC = () => {
                     type: COMMENT_RR_TYPE,
                     ttl: record.ttl,
                     changetype: 'PRUNE',
-                    records: [{ content: encodeMetadata({ type: record.type, content: record.content, comment: record.comments[0].content }) }]
+                    records: [{ content: encodeMetadata({ type: record.type, content: record.content, comment: record.comments[0].content }) }],
                 });
             }
 
@@ -274,7 +292,7 @@ export const DomainDetails: React.FC = () => {
             notify({
                 type: 'error',
                 title: 'Deletion Failed',
-                message: err instanceof Error ? err.message : 'Unknown error'
+                message: err instanceof Error ? err.message : 'Unknown error',
             });
         }
     };
@@ -286,13 +304,15 @@ export const DomainDetails: React.FC = () => {
             const targetZoneId = await zoneService.ensureZoneExists(domainName, data.view);
             const rrName = normalizeRecordName(data.name, domainName);
 
-            const ops: any[] = [{
-                name: rrName,
-                type: data.type,
-                ttl: data.ttl,
-                changetype: 'EXTEND',
-                records: [{ content: formattedContent }]
-            }];
+            const ops: any[] = [
+                {
+                    name: rrName,
+                    type: data.type,
+                    ttl: data.ttl,
+                    changetype: 'EXTEND',
+                    records: [{ content: formattedContent }],
+                },
+            ];
 
             if (data.comments.length > 0) {
                 ops.push({
@@ -300,7 +320,7 @@ export const DomainDetails: React.FC = () => {
                     type: COMMENT_RR_TYPE,
                     ttl: data.ttl,
                     changetype: 'EXTEND',
-                    records: [{ content: encodeMetadata({ type: data.type, content: formattedContent, comment: data.comments[0] }) }]
+                    records: [{ content: encodeMetadata({ type: data.type, content: formattedContent, comment: data.comments[0] }) }],
                 });
             }
 
@@ -313,7 +333,7 @@ export const DomainDetails: React.FC = () => {
             notify({
                 type: 'error',
                 title: 'Add Failed',
-                message: err instanceof Error ? err.message : 'Unknown error'
+                message: err instanceof Error ? err.message : 'Unknown error',
             });
         }
     };
@@ -324,7 +344,7 @@ export const DomainDetails: React.FC = () => {
             let recordsToImport = records;
 
             if (options.skipRedundant && view !== 'default') {
-                const defaultRecords = unifiedRecords.filter(r => r.view === 'default');
+                const defaultRecords = unifiedRecords.filter((r) => r.view === 'default');
                 recordsToImport = filterRedundantRRSets(records, defaultRecords, true);
             }
 
@@ -332,9 +352,7 @@ export const DomainDetails: React.FC = () => {
                 notify({
                     type: 'info',
                     title: 'No Changes',
-                    message: view === 'default'
-                        ? 'No new records found to import.'
-                        : 'All RRSets in the zone file are already identical in the default view.'
+                    message: view === 'default' ? 'No new records found to import.' : 'All RRSets in the zone file are already identical in the default view.',
                 });
                 setIsImportModalOpen(false);
                 return;
@@ -343,15 +361,17 @@ export const DomainDetails: React.FC = () => {
             const targetZoneId = await zoneService.ensureZoneExists(domainName, view);
 
             // PowerDNS requires exactly one record for EXTEND/PRUNE operations
-            const ops = recordsToImport.map(r => ({
+            const ops = recordsToImport.map((r) => ({
                 name: r.name,
                 type: r.type,
                 ttl: r.ttl,
                 changetype: 'EXTEND' as const,
-                records: [{
-                    content: formatRecordContent(r.content, r.type),
-                    disabled: false
-                }]
+                records: [
+                    {
+                        content: formatRecordContent(r.content, r.type),
+                        disabled: false,
+                    },
+                ],
             }));
 
             await zoneService.patchZone(targetZoneId, ops);
@@ -362,13 +382,13 @@ export const DomainDetails: React.FC = () => {
             notify({
                 type: 'success',
                 title: 'Import Successful',
-                message: `Successfully imported ${recordsToImport.length} records.${skippedCount > 0 ? ` (${skippedCount} records from redundant RRSets skipped)` : ''}`
+                message: `Successfully imported ${recordsToImport.length} records.${skippedCount > 0 ? ` (${skippedCount} records from redundant RRSets skipped)` : ''}`,
             });
         } catch (err: unknown) {
             notify({
                 type: 'error',
                 title: 'Import Failed',
-                message: err instanceof Error ? err.message : 'Unknown error'
+                message: err instanceof Error ? err.message : 'Unknown error',
             });
         }
     };
@@ -377,7 +397,9 @@ export const DomainDetails: React.FC = () => {
         <div className="space-y-6">
             {/* Breadcrumbs */}
             <nav className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Link to="/domains" className="hover:text-primary transition-colors">Domains</Link>
+                <Link to="/domains" className="hover:text-primary transition-colors">
+                    Domains
+                </Link>
                 <ChevronRight className="size-4" />
                 <span className="text-foreground font-semibold">{domainName}</span>
             </nav>
@@ -408,7 +430,7 @@ export const DomainDetails: React.FC = () => {
                 onImport={handleImportRecords}
                 availableViews={availableViews}
                 domainName={domainName || ''}
-                defaultViewRecords={unifiedRecords.filter(r => r.view === 'default')}
+                defaultViewRecords={unifiedRecords.filter((r) => r.view === 'default')}
             />
 
             {error && <Flash variant="danger">{error}</Flash>}
@@ -421,9 +443,7 @@ export const DomainDetails: React.FC = () => {
                                 <ShieldCheck className="size-5 text-primary" />
                                 Resource Records
                             </CardTitle>
-                            <CardDescription>
-                                Unified list of records. Click "Edit" to modify a record inline.
-                            </CardDescription>
+                            <CardDescription>Unified list of records. Click "Edit" to modify a record inline.</CardDescription>
                         </div>
                         <div className="w-full sm:w-72">
                             <Input
@@ -462,7 +482,7 @@ export const DomainDetails: React.FC = () => {
                                                 ttl: 3600,
                                                 content: '',
                                                 view: 'default',
-                                                comments: []
+                                                comments: [],
                                             }}
                                             availableViews={availableViews}
                                             onSave={handleAddRecord}
@@ -472,93 +492,105 @@ export const DomainDetails: React.FC = () => {
                                     {filteredRecords.length === 0 ? (
                                         <tr>
                                             <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground italic">
-                                                {unifiedRecords.length === 0 ? "No records found for this domain." : "No matching records found."}
+                                                {unifiedRecords.length === 0 ? 'No records found for this domain.' : 'No matching records found.'}
                                             </td>
                                         </tr>
-                                    ) : filteredRecords.map((rr) => {
-                                        const uniqueKey = `${rr.zoneId}-${rr.name}-${rr.type}-${rr.content}`;
-                                        const isEditing = editingRecordKey === uniqueKey;
+                                    ) : (
+                                        filteredRecords.map((rr) => {
+                                            const uniqueKey = `${rr.zoneId}-${rr.name}-${rr.type}-${rr.content}`;
+                                            const isEditing = editingRecordKey === uniqueKey;
 
-                                        if (isEditing) {
+                                            if (isEditing) {
+                                                return (
+                                                    <InlineEditRow
+                                                        key={uniqueKey}
+                                                        record={{
+                                                            name: rr.name,
+                                                            type: rr.type,
+                                                            ttl: rr.ttl,
+                                                            content: rr.content,
+                                                            view: rr.view,
+                                                            comments: rr.comments,
+                                                        }}
+                                                        availableViews={availableViews}
+                                                        onSave={async (data) => handleSaveRecord(rr, data)}
+                                                        onDelete={async () => handleDeleteRecord(rr)}
+                                                        onCancel={() => setEditingRecordKey(null)}
+                                                    />
+                                                );
+                                            }
+
                                             return (
-                                                <InlineEditRow
+                                                <tr
                                                     key={uniqueKey}
-                                                    record={{
-                                                        name: rr.name,
-                                                        type: rr.type,
-                                                        ttl: rr.ttl,
-                                                        content: rr.content,
-                                                        view: rr.view,
-                                                        comments: rr.comments
-                                                    }}
-                                                    availableViews={availableViews}
-                                                    onSave={async (data) => handleSaveRecord(rr, data)}
-                                                    onDelete={async () => handleDeleteRecord(rr)}
-                                                    onCancel={() => setEditingRecordKey(null)}
-                                                />
+                                                    className={cn(
+                                                        'hover:bg-accent/40 transition-colors group',
+                                                        rr.type === 'SOA' && 'bg-primary/[0.03] dark:bg-primary/10',
+                                                        rr.disabled && 'opacity-60 grayscale-[0.5]',
+                                                    )}
+                                                >
+                                                    <td className="px-6 py-4">
+                                                        <Badge variant={rr.view === 'default' ? 'secondary' : 'default'}>{rr.view}</Badge>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex items-center gap-2">
+                                                            <span
+                                                                className={cn(
+                                                                    'text-sm',
+                                                                    rr.disabled ? 'text-muted-foreground line-through' : 'text-foreground font-medium',
+                                                                )}
+                                                            >
+                                                                {rr.name}
+                                                            </span>
+                                                            {rr.disabled && (
+                                                                <Badge
+                                                                    variant="outline"
+                                                                    className="text-[10px] h-4 px-1 uppercase tracking-wider bg-muted text-muted-foreground border-muted-foreground/30"
+                                                                >
+                                                                    Disabled
+                                                                </Badge>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <Badge variant="outline" className="bg-background">
+                                                            {rr.type}
+                                                        </Badge>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-sm text-muted-foreground">{rr.ttl}</td>
+                                                    <td className="px-6 py-4 text-sm font-mono text-muted-foreground break-all">
+                                                        <div className="py-0.5">{rr.content}</div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-sm text-muted-foreground break-all">
+                                                        {rr.comments?.map((c) => c.content).join('; ') || ''}
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="size-8 text-muted-foreground hover:text-foreground"
+                                                                onClick={() => handleToggleDisabled(rr)}
+                                                                title={rr.disabled ? 'Enable Record' : 'Disable Record'}
+                                                            >
+                                                                {rr.disabled ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="size-8 text-muted-foreground hover:text-foreground"
+                                                                onClick={() => setEditingRecordKey(uniqueKey)}
+                                                                title="Edit Record"
+                                                                data-testid="edit-record-btn"
+                                                            >
+                                                                <Pencil className="size-4" />
+                                                            </Button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
                                             );
-                                        }
-
-                                        return (
-                                            <tr key={uniqueKey} className={cn(
-                                                "hover:bg-accent/40 transition-colors group",
-                                                rr.type === 'SOA' && "bg-primary/[0.03] dark:bg-primary/10",
-                                                rr.disabled && "opacity-60 grayscale-[0.5]"
-                                            )}>
-                                                <td className="px-6 py-4">
-                                                    <Badge variant={rr.view === 'default' ? 'secondary' : 'default'}>{rr.view}</Badge>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className={cn(
-                                                            "text-sm",
-                                                            rr.disabled ? "text-muted-foreground line-through" : "text-foreground font-medium"
-                                                        )}>
-                                                            {rr.name}
-                                                        </span>
-                                                        {rr.disabled && (
-                                                            <Badge variant="outline" className="text-[10px] h-4 px-1 uppercase tracking-wider bg-muted text-muted-foreground border-muted-foreground/30">
-                                                                Disabled
-                                                            </Badge>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <Badge variant="outline" className="bg-background">{rr.type}</Badge>
-                                                </td>
-                                                <td className="px-6 py-4 text-sm text-muted-foreground">{rr.ttl}</td>
-                                                <td className="px-6 py-4 text-sm font-mono text-muted-foreground break-all">
-                                                    <div className="py-0.5">{rr.content}</div>
-                                                </td>
-                                                <td className="px-6 py-4 text-sm text-muted-foreground break-all">
-                                                    {rr.comments?.map(c => c.content).join('; ') || ''}
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="size-8 text-muted-foreground hover:text-foreground"
-                                                            onClick={() => handleToggleDisabled(rr)}
-                                                            title={rr.disabled ? "Enable Record" : "Disable Record"}
-                                                        >
-                                                            {rr.disabled ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
-                                                        </Button>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="size-8 text-muted-foreground hover:text-foreground"
-                                                            onClick={() => setEditingRecordKey(uniqueKey)}
-                                                            title="Edit Record"
-                                                            data-testid="edit-record-btn"
-                                                        >
-                                                            <Pencil className="size-4" />
-                                                        </Button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
+                                        })
+                                    )}
                                 </tbody>
                             </table>
                         </div>
@@ -567,4 +599,4 @@ export const DomainDetails: React.FC = () => {
             </Card>
         </div>
     );
-}
+};

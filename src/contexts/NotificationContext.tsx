@@ -33,27 +33,30 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     } | null>(null);
 
     const dismiss = useCallback((id: string) => {
-        setNotifications(prev => prev.filter(n => n.id !== id));
+        setNotifications((prev) => prev.filter((n) => n.id !== id));
     }, []);
 
-    const notify = useCallback((notification: Omit<Notification, 'id'>) => {
-        const id = Math.random().toString(36).substring(2, 9);
-        const newNotification = { ...notification, id };
-        setNotifications(prev => [...prev, newNotification]);
+    const notify = useCallback(
+        (notification: Omit<Notification, 'id'>) => {
+            const id = Math.random().toString(36).substring(2, 9);
+            const newNotification = { ...notification, id };
+            setNotifications((prev) => [...prev, newNotification]);
 
-        // Log to console for warning and error
-        if (notification.type === 'error') {
-            console.error(`[PDNS-UI] ${notification.title || 'Error'}: ${notification.message}`);
-        } else if (notification.type === 'warning') {
-            console.warn(`[PDNS-UI] ${notification.title || 'Warning'}: ${notification.message}`);
-        }
+            // Log to console for warning and error
+            if (notification.type === 'error') {
+                console.error(`[PDNS-UI] ${notification.title || 'Error'}: ${notification.message}`);
+            } else if (notification.type === 'warning') {
+                console.warn(`[PDNS-UI] ${notification.title || 'Warning'}: ${notification.message}`);
+            }
 
-        if (notification.duration !== 0) {
-            setTimeout(() => {
-                dismiss(id);
-            }, notification.duration || 5000);
-        }
-    }, [dismiss]);
+            if (notification.duration !== 0) {
+                setTimeout(() => {
+                    dismiss(id);
+                }, notification.duration || 5000);
+            }
+        },
+        [dismiss],
+    );
 
     const confirm = useCallback((options: { title: string; message: string; confirmText?: string; cancelText?: string }) => {
         return new Promise<boolean>((resolve) => {
@@ -74,22 +77,20 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         }
     };
 
-
-
     return (
         <NotificationContext.Provider value={{ notifications, notify, dismiss, confirm }}>
             {children}
             {/* Global Toaster Container */}
             <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-3 max-w-sm w-full pointer-events-none">
-                {notifications.map(n => (
+                {notifications.map((n) => (
                     <div
                         key={n.id}
                         className={cn(
-                            "pointer-events-auto flex items-start gap-4 p-4 rounded-2xl shadow-2xl border backdrop-blur-xl animate-in slide-in-from-bottom-4 fade-in duration-500",
-                            n.type === 'success' && "bg-background/95 border-success/30",
-                            n.type === 'error' && "bg-background/95 border-destructive/30",
-                            n.type === 'info' && "bg-background/95 border-info/30",
-                            n.type === 'warning' && "bg-background/95 border-warning/30"
+                            'pointer-events-auto flex items-start gap-4 p-4 rounded-2xl shadow-2xl border backdrop-blur-xl animate-in slide-in-from-bottom-4 fade-in duration-500',
+                            n.type === 'success' && 'bg-background/95 border-success/30',
+                            n.type === 'error' && 'bg-background/95 border-destructive/30',
+                            n.type === 'info' && 'bg-background/95 border-info/30',
+                            n.type === 'warning' && 'bg-background/95 border-warning/30',
                         )}
                     >
                         <div className="mt-0.5 p-2 rounded-xl bg-muted/50">
@@ -102,10 +103,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                             {n.title && <p className="font-bold text-sm tracking-tight mb-0.5">{n.title}</p>}
                             <p className="text-sm text-muted-foreground leading-relaxed">{n.message}</p>
                         </div>
-                        <button
-                            onClick={() => dismiss(n.id)}
-                            className="text-muted-foreground hover:text-foreground transition-colors p-1"
-                        >
+                        <button onClick={() => dismiss(n.id)} className="text-muted-foreground hover:text-foreground transition-colors p-1">
                             <X className="size-4" />
                         </button>
                     </div>
@@ -118,21 +116,13 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                     <>
                         <ModalHeader>
                             <ModalTitle>{confirmState.title}</ModalTitle>
-                            <ModalDescription className="mt-2 leading-relaxed">
-                                {confirmState.message}
-                            </ModalDescription>
+                            <ModalDescription className="mt-2 leading-relaxed">{confirmState.message}</ModalDescription>
                         </ModalHeader>
                         <ModalFooter className="gap-3">
-                            <Button
-                                variant="ghost"
-                                onClick={() => handleConfirm(false)}
-                            >
+                            <Button variant="ghost" onClick={() => handleConfirm(false)}>
                                 {confirmState.cancelText || 'Cancel'}
                             </Button>
-                            <Button
-                                variant="primary"
-                                onClick={() => handleConfirm(true)}
-                            >
+                            <Button variant="primary" onClick={() => handleConfirm(true)}>
                                 {confirmState.confirmText || 'Confirm'}
                             </Button>
                         </ModalFooter>

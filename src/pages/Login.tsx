@@ -49,9 +49,7 @@ export const Login: React.FC = () => {
 
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-6">
-                        {error && (
-                            <Flash variant="danger">{error}</Flash>
-                        )}
+                        {error && <Flash variant="danger">{error}</Flash>}
 
                         <Input
                             label="API Key"

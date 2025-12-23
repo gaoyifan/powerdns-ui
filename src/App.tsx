@@ -8,39 +8,45 @@ import { DomainDetails } from './pages/DomainDetails';
 import { MainLayout } from './layouts/MainLayout';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated } = useAuth();
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-  return <>{children}</>;
+    const { isAuthenticated } = useAuth();
+    if (!isAuthenticated) {
+        return <Navigate to="/login" replace />;
+    }
+    return <>{children}</>;
 };
 
 const AppRoutes = () => {
-  return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
-        <Route path="/" element={<Navigate to="/domains" replace />} />
-        <Route path="/domains" element={<Domains />} />
-        <Route path="/domains/:name" element={<DomainDetails />} />
-        <Route path="/views" element={<Views />} />
-      </Route>
-    </Routes>
-  )
-}
+    return (
+        <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route
+                element={
+                    <ProtectedRoute>
+                        <MainLayout />
+                    </ProtectedRoute>
+                }
+            >
+                <Route path="/" element={<Navigate to="/domains" replace />} />
+                <Route path="/domains" element={<Domains />} />
+                <Route path="/domains/:name" element={<DomainDetails />} />
+                <Route path="/views" element={<Views />} />
+            </Route>
+        </Routes>
+    );
+};
 
 import { NotificationProvider } from './contexts/NotificationContext';
 
 function App() {
-  return (
-    <AuthProvider>
-      <NotificationProvider>
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
-      </NotificationProvider>
-    </AuthProvider>
-  );
+    return (
+        <AuthProvider>
+            <NotificationProvider>
+                <BrowserRouter>
+                    <AppRoutes />
+                </BrowserRouter>
+            </NotificationProvider>
+        </AuthProvider>
+    );
 }
 
 export default App;

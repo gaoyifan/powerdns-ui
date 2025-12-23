@@ -8,7 +8,6 @@ import { BrowserRouter } from 'react-router-dom';
 import { NotificationProvider } from '../contexts/NotificationContext';
 import { AuthProvider } from '../contexts/AuthContext';
 
-
 // Configure API for test environment
 const TEST_API_KEY = 'secret';
 const TEST_BASE_URL = 'http://127.0.0.1:8081/api/v1';
@@ -35,8 +34,8 @@ describe('Views Page (Live API)', () => {
             try {
                 const { zones } = await pdns.getViewZones(view);
                 for (const zoneVariant of zones) {
-                    await pdns.deleteViewZone(view, zoneVariant).catch(() => { });
-                    await pdns.deleteZone(zoneVariant).catch(() => { });
+                    await pdns.deleteViewZone(view, zoneVariant).catch(() => {});
+                    await pdns.deleteZone(zoneVariant).catch(() => {});
                 }
             } catch (e) {
                 // ignore
@@ -61,10 +60,9 @@ describe('Views Page (Live API)', () => {
                         <Views />
                     </BrowserRouter>
                 </NotificationProvider>
-            </AuthProvider>
+            </AuthProvider>,
         );
     };
-
 
     it('fetches and renders views correctly', async () => {
         renderComponent();
@@ -97,7 +95,6 @@ describe('Views Page (Live API)', () => {
 
         const input = await screen.findByTestId('view-name-input');
         await user.type(input, newViewName);
-
 
         await user.click(screen.getByTestId('submit-create-view-btn'));
 
@@ -140,10 +137,12 @@ describe('Views Page (Live API)', () => {
         const fetchSpy = vi.spyOn(window, 'fetch').mockImplementation((input, init) => {
             const urlStr = input.toString();
             if (urlStr === 'https://test.com/list.txt') {
-                return Promise.resolve(new Response('1.1.1.0/24\n# Comment\n2.2.2.0/24', {
-                    status: 200,
-                    headers: { 'Content-Type': 'text/plain' }
-                }));
+                return Promise.resolve(
+                    new Response('1.1.1.0/24\n# Comment\n2.2.2.0/24', {
+                        status: 200,
+                        headers: { 'Content-Type': 'text/plain' },
+                    }),
+                );
             }
             // Fallback to real fetch
             return originalFetch(input, init);
@@ -165,7 +164,9 @@ describe('Views Page (Live API)', () => {
         // Find the specific textarea for this view
         const viewHeader = await screen.findByRole('heading', { name: urlViewName });
         const card = viewHeader.closest('.transition-all') as HTMLElement;
-        const textArea = within(card).getAllByRole('textbox').find(el => el.tagName === 'TEXTAREA');
+        const textArea = within(card)
+            .getAllByRole('textbox')
+            .find((el) => el.tagName === 'TEXTAREA');
 
         await waitFor(() => {
             expect(textArea).toHaveValue('1.1.1.0/24\n2.2.2.0/24');
@@ -175,4 +176,3 @@ describe('Views Page (Live API)', () => {
         fetchSpy.mockRestore();
     });
 });
-

@@ -18,11 +18,11 @@ export const useZones = () => {
             const [zonesRes, serverRes, statsRes] = await Promise.all([
                 pdns.getZones(),
                 pdns.getServerInfo(),
-                pdns.getStatistics().catch(() => [] as StatisticItem[])
+                pdns.getStatistics().catch(() => [] as StatisticItem[]),
             ]);
 
             const grouped: Record<string, UnifiedZone> = {};
-            zonesRes.forEach(zone => {
+            zonesRes.forEach((zone) => {
                 const { name, view } = parseZoneId(zone.id);
 
                 if (!grouped[name]) {

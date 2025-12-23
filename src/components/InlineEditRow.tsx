@@ -25,7 +25,7 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
     const [view, setView] = useState(record.view);
     const [ttl, setTtl] = useState(record.ttl);
     const [content, setContent] = useState(record.content);
-    const [comment, setComment] = useState((record.comments || []).map(c => c.content).join('; '));
+    const [comment, setComment] = useState((record.comments || []).map((c) => c.content).join('; '));
     const [saving, setSaving] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -34,7 +34,10 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
         setSaving(true);
         try {
             // Split by semicolon and trim to get array of comments
-            const commentsList = comment.split(';').map(c => c.trim()).filter(c => c.length > 0);
+            const commentsList = comment
+                .split(';')
+                .map((c) => c.trim())
+                .filter((c) => c.length > 0);
             await onSave({ name, type, ttl, content, view, comments: commentsList });
         } finally {
             setSaving(false);
@@ -57,9 +60,24 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
     };
 
     const recordTypes = [
-        'A', 'AAAA', 'ALIAS', 'CAA', 'CNAME', 'DNAME',
-        'HTTPS', 'MX', 'NAPTR', 'NS', 'PTR', 'SOA',
-        'SPF', 'SRV', 'SSHFP', 'SVCB', 'TLSA', 'TXT'
+        'A',
+        'AAAA',
+        'ALIAS',
+        'CAA',
+        'CNAME',
+        'DNAME',
+        'HTTPS',
+        'MX',
+        'NAPTR',
+        'NS',
+        'PTR',
+        'SOA',
+        'SPF',
+        'SRV',
+        'SSHFP',
+        'SVCB',
+        'TLSA',
+        'TXT',
     ];
 
     return (
@@ -67,27 +85,21 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
             <td className="px-6 py-4 align-top">
                 <Select
                     value={view}
-                    onChange={e => setView(e.target.value)}
-                    options={availableViews.map(v => ({ value: v, label: v }))}
+                    onChange={(e) => setView(e.target.value)}
+                    options={availableViews.map((v) => ({ value: v, label: v }))}
                     className="h-9 w-full text-sm"
                     block
                     disabled={type === 'SOA'}
                 />
             </td>
             <td className="px-6 py-4 align-top">
-                <Input
-                    value={name}
-                    onChange={e => setName(e.target.value)}
-                    className="h-9 w-full"
-                    block
-                    disabled={type === 'SOA'}
-                />
+                <Input value={name} onChange={(e) => setName(e.target.value)} className="h-9 w-full" block disabled={type === 'SOA'} />
             </td>
             <td className="px-6 py-4 align-top">
                 <Select
                     value={type}
-                    onChange={e => setType(e.target.value)}
-                    options={recordTypes.map(t => ({ value: t, label: t }))}
+                    onChange={(e) => setType(e.target.value)}
+                    options={recordTypes.map((t) => ({ value: t, label: t }))}
                     className="h-9 w-full text-sm"
                     block
                     disabled={type === 'SOA'}
@@ -97,7 +109,7 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
                 <Input
                     type="number"
                     value={ttl}
-                    onChange={e => setTtl(Number(e.target.value))}
+                    onChange={(e) => setTtl(Number(e.target.value))}
                     className="h-9 w-full [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     block
                 />
@@ -114,7 +126,7 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
                                     <label className="text-[10px] uppercase font-bold text-muted-foreground">{label}</label>
                                     <Input
                                         value={parts[i] || ''}
-                                        onChange={e => {
+                                        onChange={(e) => {
                                             const newParts = [...parts];
                                             while (newParts.length < 7) newParts.push('');
                                             newParts[i] = e.target.value;
@@ -130,7 +142,7 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
                 ) : (
                     <Input
                         value={content}
-                        onChange={e => setContent(e.target.value)}
+                        onChange={(e) => setContent(e.target.value)}
                         className="h-9 w-full"
                         autoFocus
                         block
@@ -144,7 +156,7 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
             <td className="px-6 py-4 align-top">
                 <Input
                     value={comment}
-                    onChange={e => setComment(e.target.value)}
+                    onChange={(e) => setComment(e.target.value)}
                     data-testid="record-comment-input"
                     className="h-9 w-full"
                     block
@@ -153,7 +165,6 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
                         if (e.key === 'Escape') onCancel();
                     }}
                 />
-
             </td>
             <td className="px-6 py-4 align-top">
                 <div className="flex items-center gap-1">
@@ -201,6 +212,6 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
                     loading={deleting}
                 />
             </td>
-        </tr >
+        </tr>
     );
 };

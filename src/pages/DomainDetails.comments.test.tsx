@@ -8,7 +8,6 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { NotificationProvider } from '../contexts/NotificationContext';
 import { AuthProvider } from '../contexts/AuthContext';
 
-
 const TEST_API_KEY = 'secret';
 const TEST_BASE_URL = 'http://127.0.0.1:8081/api/v1';
 
@@ -22,7 +21,7 @@ describe('DomainDetails Comments API', () => {
             await pdns.createZone({
                 name: testZoneName,
                 kind: 'Native',
-                nameservers: ['ns1.example.com.']
+                nameservers: ['ns1.example.com.'],
             });
             // Initial record
             await pdns.patchZone(testZoneName, [
@@ -31,8 +30,8 @@ describe('DomainDetails Comments API', () => {
                     type: 'A',
                     ttl: 300,
                     changetype: 'EXTEND', // Use extend for setup
-                    records: [{ content: '1.2.3.4', disabled: false }]
-                }
+                    records: [{ content: '1.2.3.4', disabled: false }],
+                },
             ]);
         } catch (e) {
             console.error('Failed to setup test zone', e);
@@ -40,7 +39,7 @@ describe('DomainDetails Comments API', () => {
     });
 
     afterAll(async () => {
-        if (testZoneName) await pdns.deleteZone(testZoneName).catch(() => { });
+        if (testZoneName) await pdns.deleteZone(testZoneName).catch(() => {});
     });
 
     const renderWithRouter = () => {
@@ -53,10 +52,9 @@ describe('DomainDetails Comments API', () => {
                         </Routes>
                     </MemoryRouter>
                 </NotificationProvider>
-            </AuthProvider>
+            </AuthProvider>,
         );
     };
-
 
     it('sends comments in payload when adding a record', async () => {
         const user = userEvent.setup();
@@ -78,9 +76,8 @@ describe('DomainDetails Comments API', () => {
         await user.type(nameInput, newName);
 
         // Find inputs
-        const contentInput = rowInputs.find(i => !i.getAttribute('placeholder') && i !== nameInput);
+        const contentInput = rowInputs.find((i) => !i.getAttribute('placeholder') && i !== nameInput);
         const commentInput = within(firstRow!).getByTestId('record-comment-input');
-
 
         if (contentInput) await user.type(contentInput, '1.1.1.1');
         await user.type(commentInput, 'My API Test Comment');
@@ -90,18 +87,16 @@ describe('DomainDetails Comments API', () => {
         await waitFor(() => {
             expect(patchSpy).toHaveBeenCalled();
             // We expect TWO RRSets in the patch (or one call with multiple)
-            const args = patchSpy.mock.calls.find(call =>
-                (call[1] as any[]).some((r: any) => r.name.includes(newName))
-            );
+            const args = patchSpy.mock.calls.find((call) => (call[1] as any[]).some((r: any) => r.name.includes(newName)));
             expect(args).toBeDefined();
             const rrsets = args![1] as any[];
 
             // 1. The A record
-            const aRecord = rrsets.find(r => r.name.includes(newName) && r.type === 'A');
+            const aRecord = rrsets.find((r) => r.name.includes(newName) && r.type === 'A');
             expect(aRecord).toBeDefined();
 
             // 2. The Comment record (TYPE65534)
-            const commentRecord = rrsets.find(r => r.name.includes(newName) && r.type === 'TYPE65534');
+            const commentRecord = rrsets.find((r) => r.name.includes(newName) && r.type === 'TYPE65534');
             expect(commentRecord).toBeDefined();
             expect(commentRecord.records[0].content).toMatch(/^\\# \d+ [0-9a-f]+$/); // RFC 3597 format
         });
@@ -130,16 +125,13 @@ describe('DomainDetails Comments API', () => {
         await user.click(screen.getByTestId('save-record-btn'));
 
         await waitFor(() => {
-            const args = patchSpy.mock.calls.find(call =>
-                (call[1] as any[]).some((r: any) => r.name.includes('init.') && r.type === 'TYPE65534')
-            );
+            const args = patchSpy.mock.calls.find((call) => (call[1] as any[]).some((r: any) => r.name.includes('init.') && r.type === 'TYPE65534'));
             expect(args).toBeDefined();
             const rrsets = args![1] as any[];
 
-            const commentRecord = rrsets.find(r => r.name.includes('init.') && r.type === 'TYPE65534' && r.changetype === 'EXTEND');
+            const commentRecord = rrsets.find((r) => r.name.includes('init.') && r.type === 'TYPE65534' && r.changetype === 'EXTEND');
             expect(commentRecord).toBeDefined();
             expect(commentRecord!.changetype).toBe('EXTEND');
-
         });
 
         patchSpy.mockRestore();

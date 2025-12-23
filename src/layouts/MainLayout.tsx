@@ -43,27 +43,15 @@ export const MainLayout: React.FC = () => {
                     </Link>
 
                     <div className="flex flex-1 items-center justify-end gap-2">
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="border-border/80 rounded-full border"
-                            aria-label="Notifications"
-                        >
+                        <Button variant="ghost" size="icon" className="border-border/80 rounded-full border" aria-label="Notifications">
                             <Bell className="h-4 w-4" />
                         </Button>
                         <div className="flex items-center gap-4 border-l border-border/80 pl-4 ml-2">
                             <div className="bg-primary/10 text-primary flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold uppercase">
                                 {user?.username?.slice(0, 2) || 'AD'}
                             </div>
-                            <span className="hidden text-sm leading-tight font-medium sm:inline">
-                                {user?.username || 'Admin'}
-                            </span>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={handleLogout}
-                                className="text-destructive hover:text-destructive/80"
-                            >
+                            <span className="hidden text-sm leading-tight font-medium sm:inline">{user?.username || 'Admin'}</span>
+                            <Button variant="ghost" size="icon" onClick={handleLogout} className="text-destructive hover:text-destructive/80">
                                 <LogOut className="h-4 w-4" />
                             </Button>
                         </div>
@@ -85,14 +73,14 @@ export const MainLayout: React.FC = () => {
                                         'group relative flex items-center gap-4 rounded-xl px-3 py-2 text-sm transition-colors',
                                         isActive
                                             ? 'bg-primary/10 text-primary font-semibold shadow-sm'
-                                            : 'text-muted-foreground hover:bg-primary/10 hover:text-foreground font-medium'
+                                            : 'text-muted-foreground hover:bg-primary/10 hover:text-foreground font-medium',
                                     )}
                                 >
                                     <span
                                         aria-hidden="true"
                                         className={cn(
                                             'h-6 w-1 rounded-full bg-transparent transition-colors',
-                                            isActive ? 'bg-primary' : 'group-hover:bg-primary/60'
+                                            isActive ? 'bg-primary' : 'group-hover:bg-primary/60',
                                         )}
                                     />
                                     <item.icon className="h-4 w-4" />

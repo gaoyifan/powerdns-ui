@@ -59,7 +59,7 @@ export const ImportZoneModal: React.FC<ImportZoneModalProps> = ({
                 return content;
             };
 
-            recordTypes.forEach(type => {
+            recordTypes.forEach((type) => {
                 const zoneData = parsed as any;
                 if (zoneData[type] && Array.isArray(zoneData[type])) {
                     zoneData[type].forEach((r: any) => {
@@ -86,7 +86,7 @@ export const ImportZoneModal: React.FC<ImportZoneModalProps> = ({
                             name: normalizedName,
                             type: type.toUpperCase(),
                             ttl: r.ttl || defaultTTL,
-                            content: normalizeContent(content, type.toUpperCase())
+                            content: normalizeContent(content, type.toUpperCase()),
                         });
                     });
                 }
@@ -143,7 +143,7 @@ export const ImportZoneModal: React.FC<ImportZoneModalProps> = ({
                         <Select
                             value={selectedView}
                             onChange={(e) => setSelectedView(e.target.value)}
-                            options={availableViews.map(v => ({ label: v, value: v }))}
+                            options={availableViews.map((v) => ({ label: v, value: v }))}
                             block
                         />
                     </div>
@@ -168,7 +168,7 @@ export const ImportZoneModal: React.FC<ImportZoneModalProps> = ({
                         <label className="text-sm font-medium">Zone File Content</label>
                         <textarea
                             className="w-full flex-1 min-h-[300px] p-3 font-mono text-[11px] bg-muted/30 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none"
-                            placeholder={"$TTL 3600\n@ IN A 1.2.3.4\nwww IN CNAME @"}
+                            placeholder={'$TTL 3600\n@ IN A 1.2.3.4\nwww IN CNAME @'}
                             value={zoneText}
                             onChange={(e) => setZoneText(e.target.value)}
                         />
@@ -186,9 +186,13 @@ export const ImportZoneModal: React.FC<ImportZoneModalProps> = ({
                                 {filteredPreview.length > 0 ? (
                                     filteredPreview.map((r, i) => (
                                         <div key={i} className="px-2 py-1.5 text-[10px] grid grid-cols-12 gap-1 group hover:bg-muted/20 transition-colors">
-                                            <div className="col-span-5 font-medium truncate" title={r.name}>{r.name}</div>
+                                            <div className="col-span-5 font-medium truncate" title={r.name}>
+                                                {r.name}
+                                            </div>
                                             <div className="col-span-2 text-primary font-bold uppercase">{r.type}</div>
-                                            <div className="col-span-5 text-muted-foreground truncate" title={r.content}>{r.content}</div>
+                                            <div className="col-span-5 text-muted-foreground truncate" title={r.content}>
+                                                {r.content}
+                                            </div>
                                         </div>
                                     ))
                                 ) : (
@@ -197,10 +201,13 @@ export const ImportZoneModal: React.FC<ImportZoneModalProps> = ({
                                             <Info className="size-5 text-muted-foreground/30" />
                                         </div>
                                         <p className="text-[11px] text-muted-foreground italic leading-relaxed">
-                                            {!zoneText.trim() ? "Paste zone file content\nto see preview"
-                                                : redundantCount > 0 ? "All records are redundant\nCheck your view settings"
-                                                    : ignoredCount > 0 ? `All records are for domains\nother than ${domainName}`
-                                                        : "No valid DNS records\nfound in input"}
+                                            {!zoneText.trim()
+                                                ? 'Paste zone file content\nto see preview'
+                                                : redundantCount > 0
+                                                  ? 'All records are redundant\nCheck your view settings'
+                                                  : ignoredCount > 0
+                                                    ? `All records are for domains\nother than ${domainName}`
+                                                    : 'No valid DNS records\nfound in input'}
                                         </p>
                                     </div>
                                 )}
@@ -238,12 +245,7 @@ export const ImportZoneModal: React.FC<ImportZoneModalProps> = ({
                 <Button variant="ghost" onClick={onClose} disabled={isImporting}>
                     Cancel
                 </Button>
-                <Button
-                    variant="primary"
-                    onClick={handleImportClick}
-                    loading={isImporting}
-                    disabled={filteredPreview.length === 0}
-                >
+                <Button variant="primary" onClick={handleImportClick} loading={isImporting} disabled={filteredPreview.length === 0}>
                     Import {filteredPreview.length > 0 ? `(${filteredPreview.length})` : ''}
                 </Button>
             </ModalFooter>

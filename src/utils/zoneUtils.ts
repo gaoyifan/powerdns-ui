@@ -2,7 +2,6 @@ export const parseZoneId = (zoneId: string) => {
     // Handle encoded IDs from API (e.g., =5Fmarker)
     const decoded = zoneId.replace(/=5F/g, '_');
 
-
     // Format: "zone_name..view_name"
     if (decoded.includes('..')) {
         const parts = decoded.split('..');
@@ -15,7 +14,7 @@ export const parseZoneId = (zoneId: string) => {
 
 export const getCanonicalZoneName = (zoneInput: string) => {
     return zoneInput.endsWith('.') ? zoneInput : zoneInput + '.';
-}
+};
 
 export const formatZoneId = (name: string, view?: string) => {
     const cleanName = name.endsWith('.') ? name.slice(0, -1) : name;

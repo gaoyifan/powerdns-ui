@@ -8,7 +8,6 @@ import { BrowserRouter } from 'react-router-dom';
 import { NotificationProvider } from '../contexts/NotificationContext';
 import { AuthProvider } from '../contexts/AuthContext';
 
-
 // Configure API for test environment
 const TEST_API_KEY = 'secret';
 const TEST_BASE_URL = 'http://127.0.0.1:8081/api/v1';
@@ -37,7 +36,7 @@ describe('Domains Page (Live API)', () => {
             await pdns.createZone({
                 name: zoneName,
                 kind: 'Native',
-                nameservers: ['ns1.example.com.']
+                nameservers: ['ns1.example.com.'],
             });
             createdZones.push(zoneName);
             return zoneName;
@@ -56,10 +55,9 @@ describe('Domains Page (Live API)', () => {
                         <Domains />
                     </BrowserRouter>
                 </NotificationProvider>
-            </AuthProvider>
+            </AuthProvider>,
         );
     };
-
 
     it('fetches and renders domains', async () => {
         const zoneName = await createTestZone('fetch-test');
@@ -113,7 +111,6 @@ describe('Domains Page (Live API)', () => {
         // Find delete button within the row (it's now visible in the dropdown)
         const deleteBtn = await screen.findByTestId('delete-zone-btn');
         await user.click(deleteBtn);
-
 
         const modalTitle = await screen.findByRole('heading', { name: /Delete Domain/i });
         expect(modalTitle).toBeInTheDocument();

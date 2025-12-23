@@ -1,4 +1,4 @@
-import { encode, decode } from "@msgpack/msgpack";
+import { encode, decode } from '@msgpack/msgpack';
 
 export const COMMENT_RR_TYPE = 'TYPE65534';
 

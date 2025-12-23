@@ -30,7 +30,7 @@ export const zoneService = {
             const defaultZone = await pdns.getZone(defaultZoneId);
 
             // Look for NS records in the rrsets
-            const nsRrset = (defaultZone.rrsets || []).find(r => r.type === 'NS');
+            const nsRrset = (defaultZone.rrsets || []).find((r) => r.type === 'NS');
             if (nsRrset && nsRrset.records && nsRrset.records.length > 0) {
                 nameservers = nsRrset.records.map((r: any) => r.content);
             }
@@ -43,7 +43,7 @@ export const zoneService = {
         await pdns.createZone({
             name: targetZoneId,
             kind: 'Native',
-            nameservers: nameservers
+            nameservers: nameservers,
         });
 
         // If specific view, add it to the view
@@ -56,5 +56,5 @@ export const zoneService = {
 
     patchZone: async (zoneId: string, rrsets: any[]) => {
         return pdns.patchZone(zoneId, rrsets);
-    }
+    },
 };

@@ -15,13 +15,10 @@ export const useDomainRecords = (domainName: string | undefined) => {
         setError(null);
         try {
             // 1. Fetch ALL zones and views
-            const [fetchedZones, viewsRes] = await Promise.all([
-                pdns.getZones(),
-                pdns.getViews().catch(() => ({ views: [] }))
-            ]);
+            const [fetchedZones, viewsRes] = await Promise.all([pdns.getZones(), pdns.getViews().catch(() => ({ views: [] }))]);
 
             // 2. Identify relevant zones for this domain
-            const relevantZones = fetchedZones.filter(z => {
+            const relevantZones = fetchedZones.filter((z) => {
                 const parsed = parseZoneId(z.id);
                 return parsed.name === domainName || parsed.name === domainName + '.';
             });
@@ -36,8 +33,8 @@ export const useDomainRecords = (domainName: string | undefined) => {
                 try {
                     const detailedZone = await pdns.getZone(zone.id);
 
-                    return (detailedZone.rrsets || []).flatMap(rr =>
-                        rr.records.map(record => ({
+                    return (detailedZone.rrsets || []).flatMap((rr) =>
+                        rr.records.map((record) => ({
                             name: rr.name,
                             type: rr.type,
                             ttl: rr.ttl,
@@ -45,8 +42,8 @@ export const useDomainRecords = (domainName: string | undefined) => {
                             disabled: record.disabled,
                             view: view,
                             zoneId: zone.id,
-                            comments: []
-                        }))
+                            comments: [],
+                        })),
                     );
                 } catch (e) {
                     console.error(`Failed to fetch zone details for ${zone.id}`, e);
@@ -66,7 +63,6 @@ export const useDomainRecords = (domainName: string | undefined) => {
             });
 
             setUnifiedRecords(flatRecords);
-
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Failed to load records');
         } finally {

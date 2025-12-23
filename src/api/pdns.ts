@@ -23,27 +23,27 @@ export const pdns = {
     createZone: async (zone: { name: string; kind: 'Native' | 'Master' | 'Slave' | 'Producer' | 'Consumer'; nameservers: string[]; view?: string }) => {
         return apiClient.request('/servers/localhost/zones', {
             method: 'POST',
-            body: JSON.stringify(zone)
+            body: JSON.stringify(zone),
         });
     },
 
     deleteZone: async (zoneId: string) => {
         return apiClient.request(`/servers/localhost/zones/${zoneId}`, {
-            method: 'DELETE'
+            method: 'DELETE',
         });
     },
 
     patchZone: async (zoneId: string, rrsets: RRSet[]) => {
         return apiClient.request(`/servers/localhost/zones/${zoneId}`, {
             method: 'PATCH',
-            body: JSON.stringify({ rrsets })
+            body: JSON.stringify({ rrsets }),
         });
     },
 
     updateZone: async (zoneId: string, updates: Partial<Zone>) => {
         return apiClient.request(`/servers/localhost/zones/${zoneId}`, {
             method: 'PUT',
-            body: JSON.stringify(updates)
+            body: JSON.stringify(updates),
         });
     },
 
@@ -64,13 +64,13 @@ export const pdns = {
     createView: async (view: string, zoneVariantName: string) => {
         return apiClient.request(`/servers/localhost/views/${view}`, {
             method: 'POST',
-            body: JSON.stringify({ name: zoneVariantName })
+            body: JSON.stringify({ name: zoneVariantName }),
         });
     },
 
     deleteViewZone: async (view: string, zoneName: string) => {
         return apiClient.request(`/servers/localhost/views/${view}/${zoneName}`, {
-            method: 'DELETE'
+            method: 'DELETE',
         });
     },
 
@@ -82,7 +82,7 @@ export const pdns = {
     updateNetwork: async (cidr: string, view: string) => {
         return apiClient.request(`/servers/localhost/networks/${cidr}`, {
             method: 'PUT',
-            body: JSON.stringify({ view })
+            body: JSON.stringify({ view }),
         });
-    }
+    },
 };

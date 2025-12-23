@@ -7,24 +7,13 @@ interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
     children?: React.ReactNode;
 }
 
-export const Select: React.FC<SelectProps> = ({
-    label,
-    block = false,
-    options,
-    children,
-    className = '',
-    id,
-    ...props
-}) => {
+export const Select: React.FC<SelectProps> = ({ label, block = false, options, children, className = '', id, ...props }) => {
     const selectId = id || label?.toLowerCase().replace(/\s+/g, '-');
 
     return (
         <div className={`${block ? 'w-full' : ''}`}>
             {label && (
-                <label
-                    htmlFor={selectId}
-                    className="block text-sm font-medium text-text-secondary mb-1"
-                >
+                <label htmlFor={selectId} className="block text-sm font-medium text-text-secondary mb-1">
                     {label}
                 </label>
             )}
@@ -48,11 +37,13 @@ export const Select: React.FC<SelectProps> = ({
                 }}
                 {...props}
             >
-                {options ? options.map(opt => (
-                    <option key={opt.value} value={opt.value} disabled={opt.disabled}>
-                        {opt.label}
-                    </option>
-                )) : children}
+                {options
+                    ? options.map((opt) => (
+                          <option key={opt.value} value={opt.value} disabled={opt.disabled}>
+                              {opt.label}
+                          </option>
+                      ))
+                    : children}
             </select>
         </div>
     );

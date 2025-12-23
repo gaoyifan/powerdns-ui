@@ -10,21 +10,12 @@ interface DeleteConfirmationModalProps {
     loading?: boolean;
 }
 
-export const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({
-    isOpen,
-    onClose,
-    onConfirm,
-    title,
-    description,
-    loading = false,
-}) => {
+export const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({ isOpen, onClose, onConfirm, title, description, loading = false }) => {
     return (
         <Modal isOpen={isOpen} onClose={onClose}>
             <ModalHeader>
                 <ModalTitle>{title}</ModalTitle>
-                <ModalDescription>
-                    {description}
-                </ModalDescription>
+                <ModalDescription>{description}</ModalDescription>
             </ModalHeader>
             <ModalFooter>
                 <Button variant="ghost" onClick={onClose}>

@@ -2,7 +2,21 @@ import React, { useEffect, useState } from 'react';
 import { List, Network as NetworkIcon, ChevronDown, ChevronUp, Save, Plus, Trash2, Link2, RotateCw } from 'lucide-react';
 import { pdns } from '../api/pdns';
 import { cn } from '../lib/utils';
-import { Button, Card, Flash, Input, Modal, ModalHeader, ModalTitle, ModalContent, ModalFooter, Loading, EmptyState, DeleteConfirmationModal, Badge } from '../components';
+import {
+    Button,
+    Card,
+    Flash,
+    Input,
+    Modal,
+    ModalHeader,
+    ModalTitle,
+    ModalContent,
+    ModalFooter,
+    Loading,
+    EmptyState,
+    DeleteConfirmationModal,
+    Badge,
+} from '../components';
 import { useNotification } from '../contexts/NotificationContext';
 import { pool } from '../utils/promiseUtils';
 import type { Network } from '../types/api';
@@ -36,7 +50,7 @@ export const Views: React.FC = () => {
     const [viewUrls, setViewUrls] = useState<Record<string, string>>({});
     const [viewPriorities, setViewPriorities] = useState<Record<string, number>>({});
     const [updatingAll, setUpdatingAll] = useState(false);
-    const [syncProgress, setSyncProgress] = useState<{ completed: number, total: number } | null>(null);
+    const [syncProgress, setSyncProgress] = useState<{ completed: number; total: number } | null>(null);
 
     useEffect(() => {
         const savedUrls = localStorage.getItem('view_urls');
@@ -77,9 +91,9 @@ export const Views: React.FC = () => {
                     if (b === 'default') return 1;
                     return a.localeCompare(b);
                 })
-                .map(v => ({
+                .map((v) => ({
                     name: v,
-                    networks: allNetworks.filter((n: Network) => (n.view || 'default') === v).map((n: Network) => n.network)
+                    networks: allNetworks.filter((n: Network) => (n.view || 'default') === v).map((n: Network) => n.network),
                 }));
 
             setViews(viewList);
@@ -106,8 +120,8 @@ export const Views: React.FC = () => {
 
     const applyNetworkChanges = async (viewName: string, currentNetworks: string[], newNetworks: string[]) => {
         // Determine additions and removals
-        const toAdd = newNetworks.filter(n => !currentNetworks.includes(n));
-        const toRemove = currentNetworks.filter(n => !newNetworks.includes(n));
+        const toAdd = newNetworks.filter((n) => !currentNetworks.includes(n));
+        const toRemove = currentNetworks.filter((n) => !newNetworks.includes(n));
 
         // Execute changes
         // Removals
@@ -133,19 +147,21 @@ export const Views: React.FC = () => {
     const handleSaveNetworks = async (viewName: string) => {
         setSaving(true);
         try {
-            const currentNetworks = views.find(v => v.name === viewName)?.networks || [];
-            const newNetworks = editNetworksContent.split('\n').map(s => s.trim()).filter(Boolean);
+            const currentNetworks = views.find((v) => v.name === viewName)?.networks || [];
+            const newNetworks = editNetworksContent
+                .split('\n')
+                .map((s) => s.trim())
+                .filter(Boolean);
 
             await applyNetworkChanges(viewName, currentNetworks, newNetworks);
 
             await fetchData();
             setExpandedView(null);
-
         } catch (err: unknown) {
             notify({
                 type: 'error',
                 title: 'Operation Failed',
-                message: err instanceof Error ? err.message : 'Unknown error'
+                message: err instanceof Error ? err.message : 'Unknown error',
             });
         } finally {
             setSaving(false);
@@ -158,10 +174,11 @@ export const Views: React.FC = () => {
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const text = await res.text();
             // simple parsing: split by newlines, trim, ignore comments (#) and empty lines
-            const lines = text.split('\n')
-                .map(l => l.trim())
-                .filter(l => l && !l.startsWith('#'))
-                .filter(l => {
+            const lines = text
+                .split('\n')
+                .map((l) => l.trim())
+                .filter((l) => l && !l.startsWith('#'))
+                .filter((l) => {
                     // Basic CIDR validation (very loose) or just checking if it looks like an IP
                     return l.includes('.') || l.includes(':');
                 });
@@ -182,7 +199,7 @@ export const Views: React.FC = () => {
             notify({
                 type: 'error',
                 title: 'Fetch Failed',
-                message: (e as Error).message
+                message: (e as Error).message,
             });
         }
     };
@@ -190,9 +207,10 @@ export const Views: React.FC = () => {
     const handleUpdateAll = async () => {
         const confirmed = await showConfirm({
             title: 'Update All Networks',
-            message: 'This will fetch network lists from all configured URLs and synchronize your local network-to-view mappings. View priorities will be respected during conflicts.',
+            message:
+                'This will fetch network lists from all configured URLs and synchronize your local network-to-view mappings. View priorities will be respected during conflicts.',
             confirmText: 'Sync All',
-            cancelText: 'Cancel'
+            cancelText: 'Cancel',
         });
 
         if (!confirmed) return;
@@ -201,14 +219,14 @@ export const Views: React.FC = () => {
         try {
             // 1. Collect desired mappings from all URLs (respecting priority)
             const managedViews = views
-                .filter(v => v.name !== 'default' && viewUrls[v.name])
+                .filter((v) => v.name !== 'default' && viewUrls[v.name])
                 .sort((a, b) => (viewPriorities[a.name] || 0) - (viewPriorities[b.name] || 0));
 
             const desiredMappings: Record<string, string> = {};
             for (const view of managedViews) {
                 try {
                     const networks = await fetchUrlContent(viewUrls[view.name]);
-                    networks.forEach(net => {
+                    networks.forEach((net) => {
                         desiredMappings[net] = view.name;
                     });
                 } catch (e) {
@@ -216,22 +234,22 @@ export const Views: React.FC = () => {
                 }
             }
 
-
             // 2. Apply all desired mappings with limited concurrency to avoid ERR_INSUFFICIENT_RESOURCES
             const mappingEntries = Object.entries(desiredMappings);
             if (mappingEntries.length > 0) {
                 setSyncProgress({ completed: 0, total: mappingEntries.length });
-                const tasks = mappingEntries.map(([net, view]) => () => pdns.updateNetwork(net, view));
+                const tasks = mappingEntries.map(
+                    ([net, view]) =>
+                        () =>
+                            pdns.updateNetwork(net, view),
+                );
                 await pool(tasks, 10, (completed, total) => {
                     setSyncProgress({ completed, total });
                 });
             }
 
             // 3. Cleanup Orphan Networks (mappings to non-existent views)
-            const [viewsRes, networksRes] = await Promise.all([
-                pdns.getViews(),
-                pdns.getNetworks()
-            ]);
+            const [viewsRes, networksRes] = await Promise.all([pdns.getViews(), pdns.getNetworks()]);
 
             const validViews = new Set(['default', ...(viewsRes.views || [])]);
             const currentNetworks = Array.isArray(networksRes) ? networksRes : (networksRes as any).networks || [];
@@ -246,14 +264,13 @@ export const Views: React.FC = () => {
             notify({
                 type: 'success',
                 title: 'Sync Complete',
-                message: `Successfully synchronized ${mappingEntries.length} network mappings.`
+                message: `Successfully synchronized ${mappingEntries.length} network mappings.`,
             });
-
         } catch (e) {
             notify({
                 type: 'error',
                 title: 'Sync Failed',
-                message: (e as Error).message
+                message: (e as Error).message,
             });
         } finally {
             setUpdatingAll(false);
@@ -269,7 +286,7 @@ export const Views: React.FC = () => {
             // 1. We used to create a zone variant first, but now we simplify
             // by just using the root domain `.` as initial domain (i.e. `..<view>`)
 
-            const zoneVariantName = `..${newViewName}`;  // placeholder zone variant
+            const zoneVariantName = `..${newViewName}`; // placeholder zone variant
 
             // Step 1: Create Zone (SKIPPED for simplicity)
             /*
@@ -290,7 +307,7 @@ export const Views: React.FC = () => {
             notify({
                 type: 'error',
                 title: 'View Creation Failed',
-                message: err instanceof Error ? err.message : 'Unknown error'
+                message: err instanceof Error ? err.message : 'Unknown error',
             });
         } finally {
             setCreating(false);
@@ -302,7 +319,7 @@ export const Views: React.FC = () => {
         if (viewName === 'default') {
             notify({
                 type: 'warning',
-                message: 'Cannot delete default view'
+                message: 'Cannot delete default view',
             });
             return;
         }
@@ -332,7 +349,7 @@ export const Views: React.FC = () => {
             }
 
             // 3. Unmap associated networks
-            const viewObj = views.find(v => v.name === loopView);
+            const viewObj = views.find((v) => v.name === loopView);
             if (viewObj) {
                 for (const net of viewObj.networks) {
                     try {
@@ -361,7 +378,7 @@ export const Views: React.FC = () => {
             notify({
                 type: 'error',
                 title: 'Deletion Failed',
-                message: err instanceof Error ? err.message : 'Unknown error'
+                message: err instanceof Error ? err.message : 'Unknown error',
             });
         } finally {
             setDeleting(false);
@@ -385,17 +402,9 @@ export const Views: React.FC = () => {
                         data-testid="update-all-btn"
                         disabled={loading}
                     >
-                        {syncProgress
-                            ? `Syncing ${Math.round((syncProgress.completed / syncProgress.total) * 100)}%`
-                            : 'Update All (URLs)'}
+                        {syncProgress ? `Syncing ${Math.round((syncProgress.completed / syncProgress.total) * 100)}%` : 'Update All (URLs)'}
                     </Button>
-                    <Button
-                        variant="primary"
-                        leadingIcon={Plus}
-                        onClick={() => setIsCreateDialogOpen(true)}
-                        size="lg"
-                        data-testid="create-view-btn"
-                    >
+                    <Button variant="primary" leadingIcon={Plus} onClick={() => setIsCreateDialogOpen(true)} size="lg" data-testid="create-view-btn">
                         Create View
                     </Button>
                 </div>
@@ -405,128 +414,119 @@ export const Views: React.FC = () => {
 
             <div className="grid gap-4">
                 {loading && <Loading />}
-                {!loading && views.map((view) => (
-                    <Card key={view.name} className={`transition-all ${expandedView === view.name ? 'ring-2 ring-primary/20' : ''}`}>
-                        <div
-                            className={cn(
-                                "p-6 flex items-center justify-between transition-colors",
-                                view.name !== 'default' && "cursor-pointer hover:bg-accent/30"
-                            )}
-                            onClick={() => view.name !== 'default' && toggleExpand(view.name, view.networks)}
-                        >
-                            <div className="flex items-center gap-4">
-                                <div className="bg-primary/10 text-primary p-2 rounded-lg">
-                                    <List className="size-5" />
-                                </div>
-                                <div>
-                                    <div className="flex items-center gap-2">
-                                        <h3 className="font-bold text-lg">{view.name}</h3>
-                                        {viewUrls[view.name] && (
-                                            <Badge variant="secondary" className="bg-primary/5 text-primary border-primary/20 flex items-center gap-1">
-                                                <Link2 className="size-3" />
-                                                Synced
-                                                {(viewPriorities[view.name] ?? 0) !== 0 && (
-                                                    <span className="opacity-60 ml-0.5 pl-1 border-l border-primary/20">
-                                                        {viewPriorities[view.name]}
-                                                    </span>
-                                                )}
-                                            </Badge>
-                                        )}
-                                    </div>
-                                    <div className="text-sm text-muted-foreground flex items-center gap-2">
-                                        <NetworkIcon className="size-3" />
-                                        {view.networks.length} mapped networks
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                {view.name !== 'default' && (
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="text-destructive hover:bg-destructive/10"
-                                        onClick={(e) => handleDeleteView(view.name, e)}
-                                        data-testid="delete-view-btn"
-                                    >
-                                        <Trash2 className="size-4" />
-                                    </Button>
+                {!loading &&
+                    views.map((view) => (
+                        <Card key={view.name} className={`transition-all ${expandedView === view.name ? 'ring-2 ring-primary/20' : ''}`}>
+                            <div
+                                className={cn(
+                                    'p-6 flex items-center justify-between transition-colors',
+                                    view.name !== 'default' && 'cursor-pointer hover:bg-accent/30',
                                 )}
-                                {view.name !== 'default' && (
-                                    <Button variant="ghost" size="icon">
-                                        {expandedView === view.name ? <ChevronUp /> : <ChevronDown />}
-                                    </Button>
-                                )}
-                            </div>
-                        </div>
-
-                        {expandedView === view.name && (
-                            <div className="px-6 pb-6 pt-0 border-t border-border/50 animate-in slide-in-from-top-2 duration-200">
-                                <div className="mt-4 space-y-4">
-                                    {/* URL Fetcher */}
-                                    <div className="flex items-end gap-2 bg-muted/30 p-3 rounded-lg border border-border/50">
-                                        <div className="flex-[3]">
-                                            <Input
-                                                label="Source URL (Auto-updates with 'Update All')"
-                                                placeholder="https://example.com/networks.txt"
-                                                value={viewUrls[view.name] || ''}
-                                                onChange={e => updateViewUrl(view.name, e.target.value)}
-                                                className="bg-background"
-                                                block
-                                            />
-                                        </div>
-                                        <div className="w-24">
-                                            <Input
-                                                label="Priority"
-                                                type="number"
-                                                placeholder="0"
-                                                value={viewPriorities[view.name]?.toString() ?? '0'}
-                                                onChange={e => updateViewPriority(view.name, e.target.value)}
-                                                className="bg-background"
-                                                block
-                                            />
-                                        </div>
-                                        <Button
-                                            variant="secondary"
-                                            onClick={() => handleFetchFromUrl(view.name)}
-                                            disabled={!viewUrls[view.name]}
-                                        >
-                                            Fetch
-                                        </Button>
+                                onClick={() => view.name !== 'default' && toggleExpand(view.name, view.networks)}
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div className="bg-primary/10 text-primary p-2 rounded-lg">
+                                        <List className="size-5" />
                                     </div>
-
                                     <div>
-                                        <label className="block text-sm font-medium mb-2">
-                                            Mapped Networks (CIDR)
-                                        </label>
-                                        <textarea
-                                            className="w-full min-h-[150px] p-3 rounded-lg border border-input bg-background font-mono text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                            value={editNetworksContent}
-                                            onChange={e => setEditNetworksContent(e.target.value)}
-                                            placeholder="10.0.0.0/24&#10;192.168.1.0/24"
-                                        />
-                                        <p className="text-xs text-muted-foreground mt-2">
-                                            Enter one network per line. These networks will be mapped to the <strong>{view.name}</strong> view.
-                                        </p>
-                                    </div>
-
-                                    <div className="flex justify-end gap-2 pt-2 border-t border-border/50">
-                                        <Button variant="ghost" onClick={() => setExpandedView(null)}>
-                                            Cancel
-                                        </Button>
-                                        <Button variant="primary" onClick={() => handleSaveNetworks(view.name)} loading={saving}>
-                                            <Save className="size-4 mr-2" />
-                                            Save Changes
-                                        </Button>
+                                        <div className="flex items-center gap-2">
+                                            <h3 className="font-bold text-lg">{view.name}</h3>
+                                            {viewUrls[view.name] && (
+                                                <Badge variant="secondary" className="bg-primary/5 text-primary border-primary/20 flex items-center gap-1">
+                                                    <Link2 className="size-3" />
+                                                    Synced
+                                                    {(viewPriorities[view.name] ?? 0) !== 0 && (
+                                                        <span className="opacity-60 ml-0.5 pl-1 border-l border-primary/20">{viewPriorities[view.name]}</span>
+                                                    )}
+                                                </Badge>
+                                            )}
+                                        </div>
+                                        <div className="text-sm text-muted-foreground flex items-center gap-2">
+                                            <NetworkIcon className="size-3" />
+                                            {view.networks.length} mapped networks
+                                        </div>
                                     </div>
                                 </div>
+                                <div className="flex items-center gap-2">
+                                    {view.name !== 'default' && (
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="text-destructive hover:bg-destructive/10"
+                                            onClick={(e) => handleDeleteView(view.name, e)}
+                                            data-testid="delete-view-btn"
+                                        >
+                                            <Trash2 className="size-4" />
+                                        </Button>
+                                    )}
+                                    {view.name !== 'default' && (
+                                        <Button variant="ghost" size="icon">
+                                            {expandedView === view.name ? <ChevronUp /> : <ChevronDown />}
+                                        </Button>
+                                    )}
+                                </div>
                             </div>
-                        )}
-                    </Card>
-                ))}
 
-                {!loading && views.length === 0 && (
-                    <EmptyState message="No views found." />
-                )}
+                            {expandedView === view.name && (
+                                <div className="px-6 pb-6 pt-0 border-t border-border/50 animate-in slide-in-from-top-2 duration-200">
+                                    <div className="mt-4 space-y-4">
+                                        {/* URL Fetcher */}
+                                        <div className="flex items-end gap-2 bg-muted/30 p-3 rounded-lg border border-border/50">
+                                            <div className="flex-[3]">
+                                                <Input
+                                                    label="Source URL (Auto-updates with 'Update All')"
+                                                    placeholder="https://example.com/networks.txt"
+                                                    value={viewUrls[view.name] || ''}
+                                                    onChange={(e) => updateViewUrl(view.name, e.target.value)}
+                                                    className="bg-background"
+                                                    block
+                                                />
+                                            </div>
+                                            <div className="w-24">
+                                                <Input
+                                                    label="Priority"
+                                                    type="number"
+                                                    placeholder="0"
+                                                    value={viewPriorities[view.name]?.toString() ?? '0'}
+                                                    onChange={(e) => updateViewPriority(view.name, e.target.value)}
+                                                    className="bg-background"
+                                                    block
+                                                />
+                                            </div>
+                                            <Button variant="secondary" onClick={() => handleFetchFromUrl(view.name)} disabled={!viewUrls[view.name]}>
+                                                Fetch
+                                            </Button>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium mb-2">Mapped Networks (CIDR)</label>
+                                            <textarea
+                                                className="w-full min-h-[150px] p-3 rounded-lg border border-input bg-background font-mono text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                                value={editNetworksContent}
+                                                onChange={(e) => setEditNetworksContent(e.target.value)}
+                                                placeholder="10.0.0.0/24&#10;192.168.1.0/24"
+                                            />
+                                            <p className="text-xs text-muted-foreground mt-2">
+                                                Enter one network per line. These networks will be mapped to the <strong>{view.name}</strong> view.
+                                            </p>
+                                        </div>
+
+                                        <div className="flex justify-end gap-2 pt-2 border-t border-border/50">
+                                            <Button variant="ghost" onClick={() => setExpandedView(null)}>
+                                                Cancel
+                                            </Button>
+                                            <Button variant="primary" onClick={() => handleSaveNetworks(view.name)} loading={saving}>
+                                                <Save className="size-4 mr-2" />
+                                                Save Changes
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </Card>
+                    ))}
+
+                {!loading && views.length === 0 && <EmptyState message="No views found." />}
             </div>
 
             <Modal isOpen={isCreateDialogOpen} onClose={() => setIsCreateDialogOpen(false)}>
@@ -537,7 +537,7 @@ export const Views: React.FC = () => {
                     <Input
                         label="View Name"
                         value={newViewName}
-                        onChange={e => setNewViewName(e.target.value)}
+                        onChange={(e) => setNewViewName(e.target.value)}
                         placeholder="e.g. internal"
                         block
                         autoFocus
@@ -548,8 +548,16 @@ export const Views: React.FC = () => {
                     </p>
                 </ModalContent>
                 <ModalFooter>
-                    <Button onClick={() => setIsCreateDialogOpen(false)} variant="ghost">Cancel</Button>
-                    <Button variant="primary" disabled={creating || !newViewName} onClick={handleCreateView} loading={creating} data-testid="submit-create-view-btn">
+                    <Button onClick={() => setIsCreateDialogOpen(false)} variant="ghost">
+                        Cancel
+                    </Button>
+                    <Button
+                        variant="primary"
+                        disabled={creating || !newViewName}
+                        onClick={handleCreateView}
+                        loading={creating}
+                        data-testid="submit-create-view-btn"
+                    >
                         Create View
                     </Button>
                 </ModalFooter>
@@ -563,6 +571,6 @@ export const Views: React.FC = () => {
                 description="Are you sure you want to delete this view? This will delete all associated zone variants."
                 loading={deleting}
             />
-        </div >
+        </div>
     );
 };

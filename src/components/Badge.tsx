@@ -19,22 +19,14 @@ const badgeVariants = cva(
         defaultVariants: {
             variant: 'default',
         },
-    }
+    },
 );
 
-interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement>, VariantProps<typeof badgeVariants> { }
+interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement>, VariantProps<typeof badgeVariants> {}
 
-export const Badge: React.FC<BadgeProps> = ({
-    children,
-    variant,
-    className,
-    ...props
-}) => {
+export const Badge: React.FC<BadgeProps> = ({ children, variant, className, ...props }) => {
     return (
-        <span
-            className={cn(badgeVariants({ variant }), className)}
-            {...props}
-        >
+        <span className={cn(badgeVariants({ variant }), className)} {...props}>
             {children}
         </span>
     );

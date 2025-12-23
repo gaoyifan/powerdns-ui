@@ -9,29 +9,16 @@ interface InputProps extends React.ComponentProps<'input'> {
     error?: string;
 }
 
-export const Input: React.FC<InputProps> = ({
-    label,
-    block = false,
-    leadingIcon: LeadingIcon,
-    error,
-    className = '',
-    id,
-    type = 'text',
-    ...props
-}) => {
+export const Input: React.FC<InputProps> = ({ label, block = false, leadingIcon: LeadingIcon, error, className = '', id, type = 'text', ...props }) => {
     const inputId = id || label?.toLowerCase().replace(/\s+/g, '-');
 
     return (
         <div className={cn('flex flex-col gap-1.5', block ? 'w-full' : 'w-min')}>
             {label && (
-                <label
-                    htmlFor={inputId}
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                >
+                <label htmlFor={inputId} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                     {label}
                 </label>
-            )
-            }
+            )}
             <div className="relative">
                 {LeadingIcon && (
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -51,15 +38,13 @@ export const Input: React.FC<InputProps> = ({
                         'disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50',
                         LeadingIcon && 'pl-10',
                         error && 'aria-invalid:border-destructive aria-invalid:ring-destructive/20',
-                        className
+                        className,
                     )}
                     aria-invalid={!!error}
                     {...props}
                 />
             </div>
-            {error && (
-                <p className="text-sm font-medium text-destructive">{error}</p>
-            )}
-        </div >
+            {error && <p className="text-sm font-medium text-destructive">{error}</p>}
+        </div>
     );
 };

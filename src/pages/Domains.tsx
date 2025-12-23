@@ -4,7 +4,27 @@ import { Link } from 'react-router-dom';
 import { pdns } from '../api/pdns';
 import { useZones } from '../hooks/useZones';
 import { formatUptime } from '../utils/formatUtils';
-import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Flash, Modal, ModalHeader, ModalTitle, ModalContent, ModalFooter, Input, Select, Badge, StatsCard, Loading, EmptyState, DeleteConfirmationModal } from '../components';
+import {
+    Button,
+    Card,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+    CardContent,
+    Flash,
+    Modal,
+    ModalHeader,
+    ModalTitle,
+    ModalContent,
+    ModalFooter,
+    Input,
+    Select,
+    Badge,
+    StatsCard,
+    Loading,
+    EmptyState,
+    DeleteConfirmationModal,
+} from '../components';
 import { useNotification } from '../contexts/NotificationContext';
 import { cn } from '../lib/utils';
 import type { UnifiedZone } from '../types/domain';
@@ -20,7 +40,7 @@ export const Domains: React.FC = () => {
     const [creating, setCreating] = useState(false);
 
     // Delete State
-    const [zoneToDelete, setZoneToDelete] = useState<{ ids: string[], name: string } | null>(null);
+    const [zoneToDelete, setZoneToDelete] = useState<{ ids: string[]; name: string } | null>(null);
     const [deleting, setDeleting] = useState(false);
 
     // Catalog Modal State
@@ -46,7 +66,7 @@ export const Domains: React.FC = () => {
             await pdns.createZone({
                 name: zoneId,
                 kind: newZoneType as 'Native' | 'Master' | 'Slave',
-                nameservers: []
+                nameservers: [],
             });
 
             setNewZoneName('');
@@ -55,13 +75,13 @@ export const Domains: React.FC = () => {
             notify({
                 type: 'success',
                 title: 'Zone Created',
-                message: `Zone ${zoneId} has been created successfully.`
+                message: `Zone ${zoneId} has been created successfully.`,
             });
         } catch (err: unknown) {
             notify({
                 type: 'error',
                 title: 'Creation Failed',
-                message: err instanceof Error ? err.message : 'Unknown error'
+                message: err instanceof Error ? err.message : 'Unknown error',
             });
         } finally {
             setCreating(false);
@@ -78,19 +98,19 @@ export const Domains: React.FC = () => {
         if (!zoneToDelete) return;
         setDeleting(true);
         try {
-            await Promise.all(zoneToDelete.ids.map(id => pdns.deleteZone(id)));
+            await Promise.all(zoneToDelete.ids.map((id) => pdns.deleteZone(id)));
             refetch();
             setZoneToDelete(null);
             notify({
                 type: 'success',
                 title: 'Domain Deleted',
-                message: `Domain ${zoneToDelete.name} and its variants have been deleted.`
+                message: `Domain ${zoneToDelete.name} and its variants have been deleted.`,
             });
         } catch (err) {
             notify({
                 type: 'error',
                 title: 'Deletion Failed',
-                message: err instanceof Error ? err.message : 'Unknown error'
+                message: err instanceof Error ? err.message : 'Unknown error',
             });
         } finally {
             setDeleting(false);
@@ -102,7 +122,7 @@ export const Domains: React.FC = () => {
         setSavingKind(true);
         try {
             // Update all versions of the zone to have the same kind
-            await Promise.all(zoneForKind.ids.map(id => pdns.updateZone(id, { kind: selectedKind as any })));
+            await Promise.all(zoneForKind.ids.map((id) => pdns.updateZone(id, { kind: selectedKind as any })));
 
             notify({ type: 'success', title: 'Kind Updated', message: `Zone kind for ${zoneForKind.name} updated successfully.` });
             setZoneForKind(null);
@@ -111,7 +131,7 @@ export const Domains: React.FC = () => {
             notify({
                 type: 'error',
                 title: 'Update Failed',
-                message: err instanceof Error ? err.message : 'Unknown error'
+                message: err instanceof Error ? err.message : 'Unknown error',
             });
         } finally {
             setSavingKind(false);
@@ -133,7 +153,7 @@ export const Domains: React.FC = () => {
             notify({
                 type: 'error',
                 title: 'Update Failed',
-                message: err instanceof Error ? err.message : 'Unknown error'
+                message: err instanceof Error ? err.message : 'Unknown error',
             });
         } finally {
             setSavingCatalog(false);
@@ -153,13 +173,7 @@ export const Domains: React.FC = () => {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <StatsCard
-                    title="Domains"
-                    value={unifiedZones.length}
-                    description="Total managed domains"
-                    icon={Globe}
-                    loading={loading}
-                />
+                <StatsCard title="Domains" value={unifiedZones.length} description="Total managed domains" icon={Globe} loading={loading} />
                 <StatsCard
                     title="Views"
                     value={unifiedZones.reduce((acc, z) => acc + z.views.length, 0)}
@@ -176,7 +190,7 @@ export const Domains: React.FC = () => {
                 />
                 <StatsCard
                     title="Uptime"
-                    value={formatUptime(stats.find(s => s.name === 'uptime')?.value || '0')}
+                    value={formatUptime(stats.find((s) => s.name === 'uptime')?.value || '0')}
                     description="Process uptime"
                     icon={Server}
                     loading={loading}
@@ -206,10 +220,7 @@ export const Domains: React.FC = () => {
                                     className="group flex items-center justify-between p-4 rounded-xl border border-border/60 bg-background/50 hover:bg-accent/50 hover:border-primary/30 transition-all shadow-sm relative"
                                     data-testid="domain-card"
                                 >
-                                    <Link
-                                        to={`/domains/${encodeURIComponent(zone.name)}`}
-                                        className="flex items-center gap-4 flex-grow cursor-pointer"
-                                    >
+                                    <Link to={`/domains/${encodeURIComponent(zone.name)}`} className="flex items-center gap-4 flex-grow cursor-pointer">
                                         <div className="bg-primary/10 text-primary p-2 rounded-lg group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
                                             <Globe className="size-5" />
                                         </div>
@@ -234,12 +245,12 @@ export const Domains: React.FC = () => {
                                                 )}
                                             </div>
                                             <div className="flex gap-2 mt-1">
-                                                {zone.views.map(v => (
+                                                {zone.views.map((v) => (
                                                     <Badge key={v} variant={v === 'default' ? 'secondary' : 'default'} className="px-2 py-0 text-[10px] h-5">
                                                         {v}
                                                     </Badge>
                                                 ))}
-                                                {zone.kinds.map(k => (
+                                                {zone.kinds.map((k) => (
                                                     <Badge
                                                         key={k}
                                                         variant="outline"
@@ -253,7 +264,9 @@ export const Domains: React.FC = () => {
                                                     >
                                                         <Server className="size-3 opacity-70" />
                                                         <span className="opacity-70 capitalize">Kind</span>
-                                                        <span className="opacity-40 ml-0.5 pl-1 border-l border-muted-foreground/30 uppercase font-bold">{k}</span>
+                                                        <span className="opacity-40 ml-0.5 pl-1 border-l border-muted-foreground/30 uppercase font-bold">
+                                                            {k}
+                                                        </span>
                                                     </Badge>
                                                 ))}
                                             </div>
@@ -272,8 +285,8 @@ export const Domains: React.FC = () => {
                                                 variant="ghost"
                                                 size="icon"
                                                 className={cn(
-                                                    "size-9 transition-all hover:bg-accent",
-                                                    activeMenu === zone.name ? "bg-accent text-foreground" : "text-muted-foreground"
+                                                    'size-9 transition-all hover:bg-accent',
+                                                    activeMenu === zone.name ? 'bg-accent text-foreground' : 'text-muted-foreground',
                                                 )}
                                                 onClick={(e) => {
                                                     e.preventDefault();
@@ -282,7 +295,6 @@ export const Domains: React.FC = () => {
                                                 }}
                                                 data-testid="domain-menu-btn"
                                             >
-
                                                 <MoreHorizontal className="size-5" />
                                             </Button>
 
@@ -325,7 +337,6 @@ export const Domains: React.FC = () => {
                                                             }}
                                                             data-testid="delete-zone-btn"
                                                         >
-
                                                             <Trash2 className="size-4" />
                                                             Delete Domain
                                                         </button>
@@ -349,7 +360,7 @@ export const Domains: React.FC = () => {
                     <Input
                         label="Zone Name"
                         value={newZoneName}
-                        onChange={e => setNewZoneName(e.target.value)}
+                        onChange={(e) => setNewZoneName(e.target.value)}
                         placeholder="e.g. example.com"
                         block
                         autoFocus
@@ -359,7 +370,7 @@ export const Domains: React.FC = () => {
                     <Select
                         label="Type"
                         value={newZoneType}
-                        onChange={e => setNewZoneType(e.target.value)}
+                        onChange={(e) => setNewZoneType(e.target.value)}
                         block
                         options={[
                             { value: 'Native', label: 'Native' },
@@ -371,13 +382,20 @@ export const Domains: React.FC = () => {
                     />
                 </ModalContent>
                 <ModalFooter>
-                    <Button onClick={() => setIsDialogOpen(false)} variant="ghost">Cancel</Button>
-                    <Button variant="primary" disabled={creating || !newZoneName} onClick={handleCreateZone} loading={creating} data-testid="submit-create-zone-btn">
+                    <Button onClick={() => setIsDialogOpen(false)} variant="ghost">
+                        Cancel
+                    </Button>
+                    <Button
+                        variant="primary"
+                        disabled={creating || !newZoneName}
+                        onClick={handleCreateZone}
+                        loading={creating}
+                        data-testid="submit-create-zone-btn"
+                    >
                         Create Zone
                     </Button>
                 </ModalFooter>
             </Modal>
-
 
             <DeleteConfirmationModal
                 isOpen={!!zoneToDelete}
@@ -399,16 +417,15 @@ export const Domains: React.FC = () => {
                     <Select
                         label="Catalog Zone"
                         value={selectedCatalog}
-                        onChange={e => setSelectedCatalog(e.target.value)}
+                        onChange={(e) => setSelectedCatalog(e.target.value)}
                         block
-                        options={[
-                            { value: '', label: 'None (Unassigned)' },
-                            ...allRawZones.map(z => ({ value: z.name, label: z.name }))
-                        ]}
+                        options={[{ value: '', label: 'None (Unassigned)' }, ...allRawZones.map((z) => ({ value: z.name, label: z.name }))]}
                     />
                 </ModalContent>
                 <ModalFooter>
-                    <Button onClick={() => setZoneForCatalog(null)} variant="ghost">Cancel</Button>
+                    <Button onClick={() => setZoneForCatalog(null)} variant="ghost">
+                        Cancel
+                    </Button>
                     <Button variant="primary" disabled={savingCatalog} onClick={handleUpdateCatalog} loading={savingCatalog}>
                         Update Catalog
                     </Button>
@@ -425,7 +442,7 @@ export const Domains: React.FC = () => {
                     <Select
                         label="Zone Kind"
                         value={selectedKind}
-                        onChange={e => setSelectedKind(e.target.value)}
+                        onChange={(e) => setSelectedKind(e.target.value)}
                         block
                         options={[
                             { value: 'Native', label: 'Native' },
@@ -437,12 +454,14 @@ export const Domains: React.FC = () => {
                     />
                 </ModalContent>
                 <ModalFooter>
-                    <Button onClick={() => setZoneForKind(null)} variant="ghost">Cancel</Button>
+                    <Button onClick={() => setZoneForKind(null)} variant="ghost">
+                        Cancel
+                    </Button>
                     <Button variant="primary" disabled={savingKind} onClick={handleUpdateKind} loading={savingKind}>
                         Update Kind
                     </Button>
                 </ModalFooter>
             </Modal>
-        </div >
+        </div>
     );
 };

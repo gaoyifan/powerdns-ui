@@ -85,5 +85,5 @@ export const apiClient = {
         } catch (e) {
             throw new ApiError('Failed to parse JSON response', response.status);
         }
-    }
+    },
 };
