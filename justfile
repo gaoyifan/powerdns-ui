@@ -1,11 +1,13 @@
 set dotenv-path := ".env"
 
-alias u := up
 alias d := down
 alias t := test
+alias p := primary
+alias s := secondary
+alias sy := sync
 
-# Bring up all nodes, initialize components, and run tests.
-up: primary secondary init test
+# Bring up all nodes and initialize components.
+dev: primary secondary init
 
 # Bring up primary node.
 primary:
