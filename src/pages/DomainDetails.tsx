@@ -8,7 +8,7 @@ import { useDomainRecords } from '../hooks/useDomainRecords';
 import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Flash, Input, Badge, InlineEditRow, Loading, ImportZoneModal, type ParsedRecord } from '../components';
 import { useNotification } from '../contexts/NotificationContext';
 import { cn } from '../lib/utils';
-import { formatRecordContent, normalizeRecordName } from '../utils/recordUtils';
+import { formatRecordContent, normalizeRecordName, filterRedundantRRSets } from '../utils/recordUtils';
 import { encodeMetadata, decodeMetadata, COMMENT_RR_TYPE } from '../utils/dns';
 
 export const DomainDetails: React.FC = () => {
@@ -320,13 +320,32 @@ export const DomainDetails: React.FC = () => {
         }
     };
 
-    const handleImportRecords = async (records: ParsedRecord[], view: string) => {
+    const handleImportRecords = async (records: ParsedRecord[], view: string, options: { skipRedundant: boolean }) => {
         if (!domainName) return;
         try {
+            let recordsToImport = records;
+
+            if (options.skipRedundant && view !== 'default') {
+                const defaultRecords = unifiedRecords.filter(r => r.view === 'default');
+                recordsToImport = filterRedundantRRSets(records, defaultRecords, true);
+            }
+
+            if (recordsToImport.length === 0) {
+                notify({
+                    type: 'info',
+                    title: 'No Changes',
+                    message: view === 'default'
+                        ? 'No new records found to import.'
+                        : 'All RRSets in the zone file are already identical in the default view.'
+                });
+                setIsImportModalOpen(false);
+                return;
+            }
+
             const targetZoneId = await zoneService.ensureZoneExists(domainName, view);
 
             // PowerDNS requires exactly one record for EXTEND/PRUNE operations
-            const ops = records.map(r => ({
+            const ops = recordsToImport.map(r => ({
                 name: r.name,
                 type: r.type,
                 ttl: r.ttl,
@@ -341,10 +360,11 @@ export const DomainDetails: React.FC = () => {
 
             setIsImportModalOpen(false);
             refetch();
+            const skippedCount = records.length - recordsToImport.length;
             notify({
                 type: 'success',
                 title: 'Import Successful',
-                message: `Successfully imported ${records.length} records.`
+                message: `Successfully imported ${recordsToImport.length} records.${skippedCount > 0 ? ` (${skippedCount} records from redundant RRSets skipped)` : ''}`
             });
         } catch (err: unknown) {
             notify({
@@ -390,6 +410,7 @@ export const DomainDetails: React.FC = () => {
                 onImport={handleImportRecords}
                 availableViews={availableViews}
                 domainName={domainName || ''}
+                defaultViewRecords={unifiedRecords.filter(r => r.view === 'default')}
             />
 
             {error && <Flash variant="danger">{error}</Flash>}
