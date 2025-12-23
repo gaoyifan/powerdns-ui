@@ -23,27 +23,37 @@ export const zoneService = {
             if (e.status !== 404) throw e;
         }
 
-        // Fetch nameservers from default view to maintain consistency
-        let nameservers: string[] = []; // Default fallback
+        // Fetch attributes from default view to maintain consistency
+        let nameservers: string[] = [];
+        let catalog: string | undefined = undefined;
+        let kind: 'Native' | 'Master' | 'Slave' | 'Producer' | 'Consumer' = 'Native';
+
         try {
             const defaultZoneId = zoneService.getZoneId(domainName, 'default');
             const defaultZone = await pdns.getZone(defaultZoneId);
 
-            // Look for NS records in the rrsets
+            // Inherit nameservers
             const nsRrset = (defaultZone.rrsets || []).find((r) => r.type === 'NS');
             if (nsRrset && nsRrset.records && nsRrset.records.length > 0) {
                 nameservers = nsRrset.records.map((r: any) => r.content);
             }
+
+            // Inherit catalog and kind
+            catalog = defaultZone.catalog;
+            if (defaultZone.kind) {
+                kind = defaultZone.kind as any;
+            }
         } catch (e) {
-            // If default zone fetch fails or no NS records, use empty fallback
-            console.warn(`Could not fetch default zone nameservers for ${domainName}, using empty fallback.`, e);
+            // If default zone fetch fails, use fallbacks
+            console.warn(`Could not fetch default zone attributes for ${domainName}, using fallbacks.`, e);
         }
 
         // Create if not exists
         await pdns.createZone({
             name: targetZoneId,
-            kind: 'Native',
+            kind: kind,
             nameservers: nameservers,
+            catalog: catalog,
         });
 
         // If specific view, add it to the view

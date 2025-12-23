@@ -142,9 +142,8 @@ export const Domains: React.FC = () => {
         if (!zoneForCatalog) return;
         setSavingCatalog(true);
         try {
-            // Find the default view ID for this zone
-            const defaultId = zoneForCatalog.name.endsWith('.') ? zoneForCatalog.name : zoneForCatalog.name + '.';
-            await pdns.updateZone(defaultId, { catalog: selectedCatalog });
+            // Update all versions of the zone to have the same catalog
+            await Promise.all(zoneForCatalog.ids.map((id) => pdns.updateZone(id, { catalog: selectedCatalog })));
 
             notify({ type: 'success', title: 'Catalog Updated', message: `Catalog for ${zoneForCatalog.name} updated successfully.` });
             setZoneForCatalog(null);

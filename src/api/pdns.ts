@@ -20,7 +20,7 @@ export const pdns = {
         return apiClient.request<{ rrsets: RRSet[] } & Zone>(`/servers/localhost/zones/${zoneId}`);
     },
 
-    createZone: async (zone: { name: string; kind: 'Native' | 'Master' | 'Slave' | 'Producer' | 'Consumer'; nameservers: string[]; view?: string }) => {
+    createZone: async (zone: { name: string; kind: 'Native' | 'Master' | 'Slave' | 'Producer' | 'Consumer'; nameservers: string[]; view?: string; catalog?: string }) => {
         return apiClient.request('/servers/localhost/zones', {
             method: 'POST',
             body: JSON.stringify(zone),
