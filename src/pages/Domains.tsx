@@ -280,7 +280,9 @@ export const Domains: React.FC = () => {
                                                     e.stopPropagation();
                                                     setActiveMenu(activeMenu === zone.name ? null : zone.name);
                                                 }}
+                                                data-testid="domain-menu-btn"
                                             >
+
                                                 <MoreHorizontal className="size-5" />
                                             </Button>
 
@@ -321,7 +323,9 @@ export const Domains: React.FC = () => {
                                                                 handleDeleteZone(zone.ids, zone.name, e);
                                                                 setActiveMenu(null);
                                                             }}
+                                                            data-testid="delete-zone-btn"
                                                         >
+
                                                             <Trash2 className="size-4" />
                                                             Delete Domain
                                                         </button>

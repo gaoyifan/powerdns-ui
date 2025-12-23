@@ -5,6 +5,9 @@ import { apiClient } from '../api/client';
 import { pdns } from '../api/pdns';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
+import { NotificationProvider } from '../contexts/NotificationContext';
+import { AuthProvider } from '../contexts/AuthContext';
+
 
 // Configure API for test environment
 const TEST_API_KEY = 'secret';
@@ -52,11 +55,16 @@ describe('Views Page (Live API)', () => {
 
     const renderComponent = () => {
         render(
-            <BrowserRouter>
-                <Views />
-            </BrowserRouter>
+            <AuthProvider>
+                <NotificationProvider>
+                    <BrowserRouter>
+                        <Views />
+                    </BrowserRouter>
+                </NotificationProvider>
+            </AuthProvider>
         );
     };
+
 
     it('fetches and renders views correctly', async () => {
         renderComponent();

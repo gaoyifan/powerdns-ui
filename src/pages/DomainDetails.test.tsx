@@ -5,6 +5,9 @@ import { apiClient } from '../api/client';
 import { pdns } from '../api/pdns';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { NotificationProvider } from '../contexts/NotificationContext';
+import { AuthProvider } from '../contexts/AuthContext';
+
 
 // Configure API for test environment
 const TEST_API_KEY = 'secret';
@@ -58,13 +61,18 @@ describe('DomainDetails Page (Live API)', () => {
 
     const renderWithRouter = (initialEntries = [`/domains/${testZoneName}`]) => {
         render(
-            <MemoryRouter initialEntries={initialEntries}>
-                <Routes>
-                    <Route path="/domains/:name" element={<DomainDetails />} />
-                </Routes>
-            </MemoryRouter>
+            <AuthProvider>
+                <NotificationProvider>
+                    <MemoryRouter initialEntries={initialEntries}>
+                        <Routes>
+                            <Route path="/domains/:name" element={<DomainDetails />} />
+                        </Routes>
+                    </MemoryRouter>
+                </NotificationProvider>
+            </AuthProvider>
         );
     };
+
 
     it('fetches and displays domain records', async () => {
         renderWithRouter();

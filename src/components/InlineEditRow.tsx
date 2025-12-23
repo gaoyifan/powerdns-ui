@@ -145,6 +145,7 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
                 <Input
                     value={comment}
                     onChange={e => setComment(e.target.value)}
+                    data-testid="record-comment-input"
                     className="h-9 w-full"
                     block
                     onKeyDown={(e) => {
@@ -152,6 +153,7 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
                         if (e.key === 'Escape') onCancel();
                     }}
                 />
+
             </td>
             <td className="px-6 py-4 align-top">
                 <div className="flex items-center gap-1">

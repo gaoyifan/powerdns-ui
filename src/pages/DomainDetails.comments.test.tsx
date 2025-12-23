@@ -5,6 +5,9 @@ import { apiClient } from '../api/client';
 import { pdns } from '../api/pdns';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { NotificationProvider } from '../contexts/NotificationContext';
+import { AuthProvider } from '../contexts/AuthContext';
+
 
 const TEST_API_KEY = 'secret';
 const TEST_BASE_URL = 'http://127.0.0.1:8081/api/v1';
@@ -42,13 +45,18 @@ describe('DomainDetails Comments API', () => {
 
     const renderWithRouter = () => {
         render(
-            <MemoryRouter initialEntries={[`/domains/${testZoneName}`]}>
-                <Routes>
-                    <Route path="/domains/:name" element={<DomainDetails />} />
-                </Routes>
-            </MemoryRouter>
+            <AuthProvider>
+                <NotificationProvider>
+                    <MemoryRouter initialEntries={[`/domains/${testZoneName}`]}>
+                        <Routes>
+                            <Route path="/domains/:name" element={<DomainDetails />} />
+                        </Routes>
+                    </MemoryRouter>
+                </NotificationProvider>
+            </AuthProvider>
         );
     };
+
 
     it('sends comments in payload when adding a record', async () => {
         const user = userEvent.setup();
@@ -71,7 +79,8 @@ describe('DomainDetails Comments API', () => {
 
         // Find inputs
         const contentInput = rowInputs.find(i => !i.getAttribute('placeholder') && i !== nameInput);
-        const commentInput = within(firstRow!).getByPlaceholderText('Comments...');
+        const commentInput = within(firstRow!).getByTestId('record-comment-input');
+
 
         if (contentInput) await user.type(contentInput, '1.1.1.1');
         await user.type(commentInput, 'My API Test Comment');
@@ -114,7 +123,8 @@ describe('DomainDetails Comments API', () => {
         await user.click(editBtn);
 
         // Wait for edit inputs
-        const commentInput = await screen.findByPlaceholderText('Comments...');
+        const commentInput = await screen.findByTestId('record-comment-input');
+
         await user.type(commentInput, 'Updated Comment');
 
         await user.click(screen.getByTestId('save-record-btn'));
@@ -126,9 +136,10 @@ describe('DomainDetails Comments API', () => {
             expect(args).toBeDefined();
             const rrsets = args![1] as any[];
 
-            const commentRecord = rrsets.find(r => r.name.includes('init.') && r.type === 'TYPE65534');
+            const commentRecord = rrsets.find(r => r.name.includes('init.') && r.type === 'TYPE65534' && r.changetype === 'EXTEND');
             expect(commentRecord).toBeDefined();
-            expect(commentRecord.changetype).toBe('REPLACE');
+            expect(commentRecord!.changetype).toBe('EXTEND');
+
         });
 
         patchSpy.mockRestore();

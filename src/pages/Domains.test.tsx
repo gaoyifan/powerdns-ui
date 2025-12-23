@@ -5,6 +5,9 @@ import { apiClient } from '../api/client';
 import { pdns } from '../api/pdns';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
+import { NotificationProvider } from '../contexts/NotificationContext';
+import { AuthProvider } from '../contexts/AuthContext';
+
 
 // Configure API for test environment
 const TEST_API_KEY = 'secret';
@@ -47,11 +50,16 @@ describe('Domains Page (Live API)', () => {
 
     const renderComponent = () => {
         return render(
-            <BrowserRouter>
-                <Domains />
-            </BrowserRouter>
+            <AuthProvider>
+                <NotificationProvider>
+                    <BrowserRouter>
+                        <Domains />
+                    </BrowserRouter>
+                </NotificationProvider>
+            </AuthProvider>
         );
     };
+
 
     it('fetches and renders domains', async () => {
         const zoneName = await createTestZone('fetch-test');
@@ -98,9 +106,14 @@ describe('Domains Page (Live API)', () => {
         const row = zoneLink.closest('[data-testid="domain-card"]');
         expect(row).toBeInTheDocument();
 
-        // Find delete button within the row
-        const deleteBtn = within(row! as HTMLElement).getByTestId('delete-zone-btn');
+        // Open dropdown menu first
+        const menuBtn = within(row! as HTMLElement).getByTestId('domain-menu-btn');
+        await user.click(menuBtn);
+
+        // Find delete button within the row (it's now visible in the dropdown)
+        const deleteBtn = await screen.findByTestId('delete-zone-btn');
         await user.click(deleteBtn);
+
 
         const modalTitle = await screen.findByRole('heading', { name: /Delete Domain/i });
         expect(modalTitle).toBeInTheDocument();
