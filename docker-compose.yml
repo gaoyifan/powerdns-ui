@@ -46,11 +46,11 @@ services:
     profiles: [ "secondary" ]
     image: ghcr.io/astral-sh/uv:python3.13-alpine
     restart: unless-stopped
-    env_file:
-      - ./.env
     environment:
       PDNS_SECONDARY_CONTAINER: pdns-secondary-pdns-1
       SCAN_INTERVAL: "2"
+      PDNS_TSIG_NAME: ${PDNS_TSIG_NAME}
+      PDNS_CATALOG_ZONE: ${PDNS_CATALOG_ZONE}
     depends_on:
       pdns-secondary:
         condition: service_healthy
@@ -65,12 +65,11 @@ services:
     profiles: [ "sync" ]
     image: ghcr.io/astral-sh/uv:python3.13-alpine
     restart: unless-stopped
-    env_file:
-      - ./.env
     environment:
       PDNS_API_URL: http://localhost:8081/api/v1
       PDNS_API_KEY: ${PDNS_API_KEY:-secret}
       SYNC_CONFIG_PATH: /config/views.yml
+      SYNC_INTERVAL: ${SYNC_INTERVAL:-86400}
     network_mode: "container:${SYNC_TARGET_CONTAINER:-pdns-primary-pdns-1}"
     volumes:
       - ./deploy/sidecar:/sidecar:ro
