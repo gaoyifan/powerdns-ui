@@ -64,11 +64,11 @@ init-primary:
 
   pdnsutil tsigkey import "$PDNS_TSIG_NAME" "$PDNS_TSIG_ALGO" "$PDNS_TSIG_SECRET"
   pdnsutil zone load "$PDNS_CATALOG_ZONE" "/zones/${PDNS_CATALOG_ZONE}.zone"
-  pdnsutil add-record "$PDNS_CATALOG_ZONE" "$PDNS_CATALOG_ZONE" NS "ns2.${PDNS_CATALOG_ZONE}."
+  pdnsutil add-record "$PDNS_CATALOG_ZONE" "$PDNS_CATALOG_ZONE" NS 60 "ns2.${PDNS_CATALOG_ZONE}."
   pdnsutil replace-rrset "$PDNS_CATALOG_ZONE" "ns2.${PDNS_CATALOG_ZONE}" A 60 "$SECONDARY_IP"
   pdnsutil zone set-kind "$PDNS_CATALOG_ZONE" producer
   pdnsutil zone load "$PDNS_MEMBER_ZONE" "/zones/${PDNS_MEMBER_ZONE}.zone"
-  pdnsutil add-record "$PDNS_MEMBER_ZONE" "$PDNS_MEMBER_ZONE" NS "ns2.${PDNS_MEMBER_ZONE}."
+  pdnsutil add-record "$PDNS_MEMBER_ZONE" "$PDNS_MEMBER_ZONE" NS 60 "ns2.${PDNS_MEMBER_ZONE}."
   pdnsutil replace-rrset "$PDNS_MEMBER_ZONE" "ns2.${PDNS_MEMBER_ZONE}" A 60 "$SECONDARY_IP"
   pdnsutil zone set-kind "$PDNS_MEMBER_ZONE" primary
   pdnsutil catalog set "$PDNS_MEMBER_ZONE" "$PDNS_CATALOG_ZONE"
