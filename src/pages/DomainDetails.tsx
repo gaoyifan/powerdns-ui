@@ -114,8 +114,8 @@ export const DomainDetails: React.FC = () => {
                         name: original.name,
                         type: original.type,
                         ttl: original.ttl,
-                        changetype: 'PRUNE',
-                        records: [{ content: original.content }],
+                        changetype: original.type === 'SOA' ? 'DELETE' : 'PRUNE',
+                        records: original.type === 'SOA' ? [] : [{ content: original.content }],
                     },
                 ];
 
@@ -139,7 +139,7 @@ export const DomainDetails: React.FC = () => {
                         name: newRrName,
                         type: data.type,
                         ttl: data.ttl,
-                        changetype: 'EXTEND',
+                        changetype: data.type === 'SOA' ? 'REPLACE' : 'EXTEND',
                         records: [{ content: formattedContent }],
                     },
                 ];
@@ -159,7 +159,16 @@ export const DomainDetails: React.FC = () => {
                 const ops: any[] = [];
 
                 // If content changed, we PRUNE old and EXTEND new
-                if (data.content !== original.content) {
+                if (data.type === 'SOA') {
+                    // For SOA, always replace the entire RRSet to avoid duplicates and handle stale serials
+                    ops.push({
+                        name: data.name,
+                        type: data.type,
+                        ttl: data.ttl,
+                        changetype: 'REPLACE',
+                        records: [{ content: formattedContent }],
+                    });
+                } else if (data.content !== original.content) {
                     ops.push({
                         name: original.name,
                         type: original.type,
@@ -269,8 +278,8 @@ export const DomainDetails: React.FC = () => {
                     name: record.name,
                     type: record.type,
                     ttl: record.ttl,
-                    changetype: 'PRUNE',
-                    records: [{ content: record.content }],
+                    changetype: record.type === 'SOA' ? ('DELETE' as const) : ('PRUNE' as const),
+                    records: record.type === 'SOA' ? [] : [{ content: record.content }],
                 },
             ];
 
@@ -309,7 +318,7 @@ export const DomainDetails: React.FC = () => {
                     name: rrName,
                     type: data.type,
                     ttl: data.ttl,
-                    changetype: 'EXTEND',
+                    changetype: data.type === 'SOA' ? 'REPLACE' : 'EXTEND',
                     records: [{ content: formattedContent }],
                 },
             ];

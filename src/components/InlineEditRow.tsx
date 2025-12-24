@@ -189,7 +189,7 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
                     >
                         <X className="size-4" />
                     </Button>
-                    {onDelete && type !== 'SOA' && (
+                    {onDelete && (
                         <Button
                             size="icon"
                             variant="ghost"

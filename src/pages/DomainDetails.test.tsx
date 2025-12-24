@@ -244,4 +244,126 @@ describe('DomainDetails Page (Live API)', () => {
             expect(rrset?.records[0].content).toBe('"some text content"');
         });
     });
+
+    it('allows deleting SOA records', async () => {
+        const uniqueZone = `soa-del-${Date.now()}.com.`;
+        await pdns.createZone({
+            name: uniqueZone,
+            kind: 'Native',
+            nameservers: ['ns1.example.com.'],
+        });
+
+        const user = userEvent.setup();
+        renderWithRouter([`/domains/${uniqueZone}`]);
+
+        try {
+            // 1. Find the SOA record in the list
+            const soaBadge = await screen.findByText('SOA');
+            const row = soaBadge.closest('tr');
+
+            // 2. Click Edit to enter inline edit mode
+            const editBtn = within(row!).getByTestId('edit-record-btn');
+            await user.click(editBtn);
+
+            // 3. Delete button should now be visible for SOA (previously hidden)
+            const deleteBtn = await screen.findByTestId('delete-record-btn');
+            expect(deleteBtn).toBeInTheDocument();
+
+            // 4. Trigger deletion
+            await user.click(deleteBtn);
+
+            // 5. Confirm in modal
+            const modalHeading = await screen.findByRole('heading', { name: /delete record/i });
+            const modal = modalHeading.closest('[class*="fixed"]');
+            const confirmBtn = within(modal as HTMLElement).getByRole('button', { name: /delete/i });
+            await user.click(confirmBtn);
+
+            // 6. Wait for success notification and for record to disappear
+            await waitFor(
+                async () => {
+                    const rows = screen.getAllByRole('row');
+                    const soaRow = rows.find((row) => within(row).queryByText('SOA'));
+                    expect(soaRow).toBeUndefined();
+
+                    // Verify backend
+                    const zone = await pdns.getZone(uniqueZone);
+                    const rrset = zone.rrsets.find((r) => r.type === 'SOA');
+                    expect(rrset).toBeUndefined();
+                },
+                { timeout: 5000 },
+            );
+        } finally {
+            await pdns.deleteZone(uniqueZone).catch(() => { });
+        }
+    }, 15000);
+
+    it('handles SOA updates correctly even if serial changes in background', async () => {
+        const uniqueZone = `soa-stale-${Date.now()}.com.`;
+        await pdns.createZone({
+            name: uniqueZone,
+            kind: 'Native',
+            nameservers: ['ns1.example.com.'],
+        });
+
+        const user = userEvent.setup();
+        renderWithRouter([`/domains/${uniqueZone}`]);
+
+        try {
+            // 1. Wait for page to load and find SOA
+            const soaBadge = await screen.findByText('SOA');
+            const row = soaBadge.closest('tr');
+
+            // 2. Simulate background update: change serial directly via API
+            // This makes the UI's version of SOA content stale
+            const zone = await pdns.getZone(uniqueZone);
+            const soaRRSet = zone.rrsets.find((r) => r.type === 'SOA');
+            const currentContent = soaRRSet?.records[0].content;
+            const staleContent = currentContent?.replace(/\s(\d{10})\s/, ' 2000010101 '); // Force an old serial
+
+            await pdns.patchZone(uniqueZone, [
+                {
+                    name: uniqueZone,
+                    type: 'SOA',
+                    ttl: 3600,
+                    changetype: 'REPLACE',
+                    records: [{ content: staleContent!, disabled: false }],
+                },
+            ]);
+
+            // 3. Edit the SOA in the UI
+            const editBtn = within(row!).getByTestId('edit-record-btn');
+            await user.click(editBtn);
+
+            // 4. Change something (e.g. Primary NS)
+            const soaInputs = screen.getAllByRole('textbox');
+            // 0: Search
+            // 1: Name (disabled)
+            // 2: Primary NS
+            // 3: Admin Email
+            // ...
+
+            await user.clear(soaInputs[2]); // Primary NS input
+            await user.type(soaInputs[2], 'new-ns.com.');
+
+            // 5. Save
+            await user.click(screen.getByTestId('save-record-btn'));
+
+            // 6. Verify success and check for duplicates
+            await waitFor(
+                async () => {
+                    expect(screen.getByText(/new-ns\.com\./)).toBeInTheDocument();
+
+                    // Verify backend: should have exactly one SOA record
+                    const updatedZone = await pdns.getZone(uniqueZone);
+                    const soaRRSet = updatedZone.rrsets.find((r) => r.type === 'SOA');
+                    expect(soaRRSet).toBeDefined();
+                    expect(soaRRSet?.records.length).toBe(1);
+                    expect(soaRRSet?.records[0].content).toContain('new-ns.com.');
+                },
+                { timeout: 5000 },
+            );
+        } finally {
+            await pdns.deleteZone(uniqueZone).catch(() => { });
+        }
+    }, 15000);
 });
