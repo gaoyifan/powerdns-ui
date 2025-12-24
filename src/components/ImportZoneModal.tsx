@@ -1,17 +1,15 @@
 import React, { useState } from 'react';
-import { FileUp, AlertCircle, Info, ShieldCheck } from 'lucide-react';
+import { FileUp, AlertCircle, Info } from 'lucide-react';
 import zonefile from 'dns-zonefile';
 import { Modal, ModalHeader, ModalTitle, ModalDescription, ModalContent, ModalFooter, Button, Select, Flash } from './';
-import { filterRedundantRRSets } from '../utils/recordUtils';
 
 interface ImportZoneModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onImport: (records: ParsedRecord[], view: string, options: { skipRedundant: boolean }) => Promise<void>;
+    onImport: (records: ParsedRecord[], view: string) => Promise<void>;
     availableViews: string[];
     defaultView?: string;
     domainName: string;
-    defaultViewRecords?: ParsedRecord[];
 }
 
 export interface ParsedRecord {
@@ -28,13 +26,11 @@ export const ImportZoneModal: React.FC<ImportZoneModalProps> = ({
     availableViews,
     defaultView = 'default',
     domainName,
-    defaultViewRecords = [],
 }) => {
     const [zoneText, setZoneText] = useState('');
     const [selectedView, setSelectedView] = useState(defaultView);
     const [isImporting, setIsImporting] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [skipRedundant, setSkipRedundant] = useState(true);
 
     // 1. Derive parsed and in-zone records
     const { inZoneRecords, ignoredCount } = React.useMemo(() => {
@@ -97,22 +93,14 @@ export const ImportZoneModal: React.FC<ImportZoneModalProps> = ({
         }
     }, [zoneText, domainName]);
 
-    // 2. Derive filtered preview (redundancy check)
-    const filteredPreview = React.useMemo(() => {
-        if (!skipRedundant || selectedView === defaultView || defaultViewRecords.length === 0) {
-            return inZoneRecords;
-        }
-        return filterRedundantRRSets(inZoneRecords, defaultViewRecords, true);
-    }, [inZoneRecords, selectedView, skipRedundant, defaultViewRecords, defaultView]);
-
-    const redundantCount = inZoneRecords.length - filteredPreview.length;
+    const filteredPreview = inZoneRecords;
 
     const handleImportClick = async () => {
         if (filteredPreview.length === 0) return;
         setIsImporting(true);
         setError(null);
         try {
-            await onImport(filteredPreview, selectedView, { skipRedundant });
+            await onImport(filteredPreview, selectedView);
             onClose();
             setZoneText('');
         } catch (err: any) {
@@ -147,20 +135,6 @@ export const ImportZoneModal: React.FC<ImportZoneModalProps> = ({
                             block
                         />
                     </div>
-                    {selectedView !== defaultView && (
-                        <div className="flex items-center gap-2 px-3 py-2 bg-primary/5 rounded-xl border border-primary/10 self-end h-[42px]">
-                            <input
-                                type="checkbox"
-                                id="skipRedundant"
-                                className="size-4 rounded border-border text-primary focus:ring-primary/20"
-                                checked={skipRedundant}
-                                onChange={(e) => setSkipRedundant(e.target.checked)}
-                            />
-                            <label htmlFor="skipRedundant" className="text-sm font-medium cursor-pointer truncate text-xs">
-                                Skip redundant records
-                            </label>
-                        </div>
-                    )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -203,9 +177,7 @@ export const ImportZoneModal: React.FC<ImportZoneModalProps> = ({
                                         <p className="text-[11px] text-muted-foreground italic leading-relaxed">
                                             {!zoneText.trim()
                                                 ? 'Paste zone file content\nto see preview'
-                                                : redundantCount > 0
-                                                  ? 'All records are redundant\nCheck your view settings'
-                                                  : ignoredCount > 0
+                                                : ignoredCount > 0
                                                     ? `All records are for domains\nother than ${domainName}`
                                                     : 'No valid DNS records\nfound in input'}
                                         </p>
@@ -213,18 +185,11 @@ export const ImportZoneModal: React.FC<ImportZoneModalProps> = ({
                                 )}
                             </div>
 
-                            {(ignoredCount > 0 || redundantCount > 0) && (
+                            {ignoredCount > 0 && (
                                 <div className="px-2 py-1.5 bg-muted/30 border-t border-border flex flex-wrap gap-x-3 gap-y-1">
-                                    {ignoredCount > 0 && (
-                                        <span className="text-[10px] text-orange-500 font-medium flex items-center gap-1">
-                                            <AlertCircle className="size-3" /> {ignoredCount} out-of-zone
-                                        </span>
-                                    )}
-                                    {redundantCount > 0 && (
-                                        <span className="text-[10px] text-primary/70 font-medium flex items-center gap-1">
-                                            <ShieldCheck className="size-3" /> {redundantCount} redundant
-                                        </span>
-                                    )}
+                                    <span className="text-[10px] text-orange-500 font-medium flex items-center gap-1">
+                                        <AlertCircle className="size-3" /> {ignoredCount} out-of-zone
+                                    </span>
                                 </div>
                             )}
                         </div>

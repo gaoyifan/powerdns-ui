@@ -22,7 +22,7 @@ import {
 } from '../components';
 import { useNotification } from '../contexts/NotificationContext';
 import { cn } from '../lib/utils';
-import { formatRecordContent, normalizeRecordName, filterRedundantRRSets } from '../utils/recordUtils';
+import { formatRecordContent, normalizeRecordName } from '../utils/recordUtils';
 import { encodeMetadata, decodeMetadata, COMMENT_RR_TYPE } from '../utils/dns';
 
 export const DomainDetails: React.FC = () => {
@@ -347,21 +347,16 @@ export const DomainDetails: React.FC = () => {
         }
     };
 
-    const handleImportRecords = async (records: ParsedRecord[], view: string, options: { skipRedundant: boolean }) => {
+    const handleImportRecords = async (records: ParsedRecord[], view: string) => {
         if (!domainName) return;
         try {
-            let recordsToImport = records;
-
-            if (options.skipRedundant && view !== 'default') {
-                const defaultRecords = unifiedRecords.filter((r) => r.view === 'default');
-                recordsToImport = filterRedundantRRSets(records, defaultRecords, true);
-            }
+            const recordsToImport = records;
 
             if (recordsToImport.length === 0) {
                 notify({
                     type: 'info',
                     title: 'No Changes',
-                    message: view === 'default' ? 'No new records found to import.' : 'All RRSets in the zone file are already identical in the default view.',
+                    message: 'No new records found to import.',
                 });
                 setIsImportModalOpen(false);
                 return;
@@ -387,11 +382,10 @@ export const DomainDetails: React.FC = () => {
 
             setIsImportModalOpen(false);
             refetch();
-            const skippedCount = records.length - recordsToImport.length;
             notify({
                 type: 'success',
                 title: 'Import Successful',
-                message: `Successfully imported ${recordsToImport.length} records.${skippedCount > 0 ? ` (${skippedCount} records from redundant RRSets skipped)` : ''}`,
+                message: `Successfully imported ${recordsToImport.length} records.`,
             });
         } catch (err: unknown) {
             notify({
@@ -439,7 +433,6 @@ export const DomainDetails: React.FC = () => {
                 onImport={handleImportRecords}
                 availableViews={availableViews}
                 domainName={domainName || ''}
-                defaultViewRecords={unifiedRecords.filter((r) => r.view === 'default')}
             />
 
             {error && <Flash variant="danger">{error}</Flash>}
