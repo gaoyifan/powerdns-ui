@@ -15,6 +15,7 @@
     "@tailwindcss/vite": "^4.1.18",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "copy-to-clipboard": "^3.3.3",
     "dns-zonefile": "^0.3.2",
     "lucide-react": "^0.562.0",
     "react": "^19.2.0",

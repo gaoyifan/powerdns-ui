@@ -40,6 +40,7 @@ import { useNotification } from '../contexts/NotificationContext';
 import { cn } from '../lib/utils';
 import { formatRecordContent, normalizeRecordName } from '../utils/recordUtils';
 import { encodeMetadata, decodeMetadata, COMMENT_RR_TYPE } from '../utils/dns';
+import copy from 'copy-to-clipboard';
 
 const CopyButton = ({ text, className }: { text: string; className?: string }) => {
     const [copied, setCopied] = useState(false);
@@ -47,10 +48,14 @@ const CopyButton = ({ text, className }: { text: string; className?: string }) =
 
     const handleCopy = (e: React.MouseEvent) => {
         e.stopPropagation();
-        navigator.clipboard.writeText(text);
-        setCopied(true);
-        notify({ type: 'success', message: 'Copied to clipboard' });
-        setTimeout(() => setCopied(false), 2000);
+        const success = copy(text);
+        if (success) {
+            setCopied(true);
+            notify({ type: 'success', message: 'Copied to clipboard' });
+            setTimeout(() => setCopied(false), 2000);
+        } else {
+            notify({ type: 'error', message: 'Failed to copy to clipboard' });
+        }
     };
 
     return (
@@ -385,8 +390,6 @@ export const DomainDetails: React.FC = () => {
                     records: keepRecords.map((r) => ({ content: r.content, disabled: r.disabled })),
                 });
             }
-
-            // ... (previous code)
 
             // Comments handling
             allRrsetRecords
