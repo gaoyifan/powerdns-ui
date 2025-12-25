@@ -19,14 +19,7 @@ export interface ParsedRecord {
     content: string;
 }
 
-export const ImportZoneModal: React.FC<ImportZoneModalProps> = ({
-    isOpen,
-    onClose,
-    onImport,
-    availableViews,
-    defaultView = 'default',
-    domainName,
-}) => {
+export const ImportZoneModal: React.FC<ImportZoneModalProps> = ({ isOpen, onClose, onImport, availableViews, defaultView = 'default', domainName }) => {
     const [zoneText, setZoneText] = useState('');
     const [selectedView, setSelectedView] = useState(defaultView);
     const [isImporting, setIsImporting] = useState(false);
@@ -178,8 +171,8 @@ export const ImportZoneModal: React.FC<ImportZoneModalProps> = ({
                                             {!zoneText.trim()
                                                 ? 'Paste zone file content\nto see preview'
                                                 : ignoredCount > 0
-                                                    ? `All records are for domains\nother than ${domainName}`
-                                                    : 'No valid DNS records\nfound in input'}
+                                                  ? `All records are for domains\nother than ${domainName}`
+                                                  : 'No valid DNS records\nfound in input'}
                                         </p>
                                     </div>
                                 )}

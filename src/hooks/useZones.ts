@@ -28,7 +28,6 @@ export const useZones = () => {
                 5,
             );
 
-
             const grouped: Record<string, UnifiedZone> = {};
             zonesRes.forEach((zone) => {
                 const { name, view } = parseZoneId(zone.id);
@@ -42,9 +41,6 @@ export const useZones = () => {
                 if (zone.kind && !grouped[name].kinds.includes(zone.kind)) {
                     grouped[name].kinds.push(zone.kind);
                 }
-
-
-
 
                 grouped[name].ids.push(zone.id);
             });

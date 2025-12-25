@@ -36,7 +36,9 @@ export const MainLayout: React.FC = () => {
                     <Link to="/" className="flex items-center gap-3">
                         <Logo size={40} className="text-primary drop-shadow-sm" />
                         <div className="flex flex-col leading-tight">
-                            <span className="text-lg font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">PowerDNS UI</span>
+                            <span className="text-lg font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+                                PowerDNS UI
+                            </span>
                             <span className="text-muted-foreground text-[10px] font-medium uppercase tracking-wider">v5 Management System</span>
                         </div>
                     </Link>

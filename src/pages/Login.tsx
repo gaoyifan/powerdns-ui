@@ -48,9 +48,7 @@ export const Login: React.FC = () => {
                         <CardTitle className="text-3xl font-extrabold tracking-tight bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text text-transparent">
                             PowerDNS UI
                         </CardTitle>
-                        <CardDescription className="text-sm font-medium uppercase tracking-widest mt-1">
-                            v5 Management System
-                        </CardDescription>
+                        <CardDescription className="text-sm font-medium uppercase tracking-widest mt-1">v5 Management System</CardDescription>
                     </div>
                 </CardHeader>
 

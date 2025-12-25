@@ -7,25 +7,12 @@ interface LogoProps {
 
 export const Logo: React.FC<LogoProps> = ({ className, size = 40 }) => {
     return (
-        <svg
-            width={size}
-            height={size}
-            viewBox="0 0 100 100"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            className={className}
-        >
+        <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
             {/* Background Circle */}
             <circle cx="50" cy="50" r="48" fill="url(#logo-gradient)" fillOpacity="0.1" />
 
             {/* Hexagonal Network Frame */}
-            <path
-                d="M50 10L84.64 30V70L50 90L15.36 70V30L50 10Z"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeDasharray="4 4"
-                className="text-primary/40"
-            />
+            <path d="M50 10L84.64 30V70L50 90L15.36 70V30L50 10Z" stroke="currentColor" strokeWidth="2" strokeDasharray="4 4" className="text-primary/40" />
 
             {/* Network Nodes */}
             <circle cx="50" cy="10" r="3" fill="currentColor" className="text-primary" />

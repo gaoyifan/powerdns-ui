@@ -43,8 +43,6 @@ export const Domains: React.FC = () => {
     const [zoneToDelete, setZoneToDelete] = useState<{ ids: string[]; name: string } | null>(null);
     const [deleting, setDeleting] = useState(false);
 
-
-
     // Dropdown State
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
 
@@ -52,7 +50,6 @@ export const Domains: React.FC = () => {
     const [zoneForKind, setZoneForKind] = useState<UnifiedZone | null>(null);
     const [selectedKind, setSelectedKind] = useState('');
     const [savingKind, setSavingKind] = useState(false);
-
 
     const handleCreateZone = async () => {
         if (!newZoneName) return;
@@ -135,9 +132,6 @@ export const Domains: React.FC = () => {
             setSavingKind(false);
         }
     };
-
-
-
 
     return (
         <div className="space-y-6">
@@ -383,7 +377,6 @@ export const Domains: React.FC = () => {
                     </Button>
                 </ModalFooter>
             </Modal>
-
         </div>
     );
 };

@@ -55,4 +55,3 @@ export interface StatisticItem {
     type: 'StatisticItem';
     value: string;
 }
-

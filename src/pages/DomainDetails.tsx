@@ -1,6 +1,23 @@
 import React, { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Plus, ChevronRight, LayoutList, ShieldCheck, Search, Pencil, FileUp, Eye, EyeOff, Trash2, CheckSquare, Square, CopyPlus, Copy, Check, X } from 'lucide-react';
+import {
+    Plus,
+    ChevronRight,
+    LayoutList,
+    ShieldCheck,
+    Search,
+    Pencil,
+    FileUp,
+    Eye,
+    EyeOff,
+    Trash2,
+    CheckSquare,
+    Square,
+    CopyPlus,
+    Copy,
+    Check,
+    X,
+} from 'lucide-react';
 import { zoneService } from '../api/zoneService';
 import type { RecordWithView } from '../types/domain';
 import { useDomainRecords } from '../hooks/useDomainRecords';
@@ -40,9 +57,9 @@ const CopyButton = ({ text, className }: { text: string; className?: string }) =
         <button
             onClick={handleCopy}
             className={cn(
-                "p-1 rounded-md hover:bg-muted transition-all duration-200",
-                copied ? "text-green-600 bg-green-50" : "text-muted-foreground hover:text-foreground",
-                className
+                'p-1 rounded-md hover:bg-muted transition-all duration-200',
+                copied ? 'text-green-600 bg-green-50' : 'text-muted-foreground hover:text-foreground',
+                className,
             )}
             title="Copy to clipboard"
         >
@@ -297,7 +314,7 @@ export const DomainDetails: React.FC = () => {
 
             // Find ALL records for this RRSet
             const allRrsetRecords = (unifiedRecords || []).filter(
-                (r) => r.name === info.name && r.type === info.type && r.view === info.view && r.zoneId === info.zoneId
+                (r) => r.name === info.name && r.type === info.type && r.view === info.view && r.zoneId === info.zoneId,
             );
 
             // Construct new records payload
@@ -351,7 +368,7 @@ export const DomainDetails: React.FC = () => {
 
             // Find ALL records for this RRSet
             const allRrsetRecords = (unifiedRecords || []).filter(
-                (r) => r.name === info.name && r.type === info.type && r.view === info.view && r.zoneId === info.zoneId
+                (r) => r.name === info.name && r.type === info.type && r.view === info.view && r.zoneId === info.zoneId,
             );
 
             // Records to KEEP (not in the set we are deleting)
@@ -483,7 +500,7 @@ export const DomainDetails: React.FC = () => {
             ttl: record.ttl,
             content: '', // Clear content as requested
             view: record.view,
-            comments: record.comments.map(c => c.content),
+            comments: record.comments.map((c) => c.content),
         });
         // Scroll to top or just let the new row appear
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -668,36 +685,36 @@ export const DomainDetails: React.FC = () => {
                                     >
                                         Delete
                                     </Button>
-                                    {Array.from(selectedKeys).some(key => {
-                                        const rr = filteredRecords.find(r => getRecordKey(r) === key);
+                                    {Array.from(selectedKeys).some((key) => {
+                                        const rr = filteredRecords.find((r) => getRecordKey(r) === key);
                                         return rr && !rr.disabled;
                                     }) && (
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                leadingIcon={EyeOff}
-                                                className="text-muted-foreground hover:text-foreground h-9"
-                                                onClick={() => handleBulkToggleDisabled(true)}
-                                                data-testid="bulk-disable-btn"
-                                            >
-                                                Disable
-                                            </Button>
-                                        )}
-                                    {Array.from(selectedKeys).some(key => {
-                                        const rr = filteredRecords.find(r => getRecordKey(r) === key);
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            leadingIcon={EyeOff}
+                                            className="text-muted-foreground hover:text-foreground h-9"
+                                            onClick={() => handleBulkToggleDisabled(true)}
+                                            data-testid="bulk-disable-btn"
+                                        >
+                                            Disable
+                                        </Button>
+                                    )}
+                                    {Array.from(selectedKeys).some((key) => {
+                                        const rr = filteredRecords.find((r) => getRecordKey(r) === key);
                                         return rr && rr.disabled;
                                     }) && (
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                leadingIcon={Eye}
-                                                className="text-muted-foreground hover:text-foreground h-9"
-                                                onClick={() => handleBulkToggleDisabled(false)}
-                                                data-testid="bulk-enable-btn"
-                                            >
-                                                Enable
-                                            </Button>
-                                        )}
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            leadingIcon={Eye}
+                                            className="text-muted-foreground hover:text-foreground h-9"
+                                            onClick={() => handleBulkToggleDisabled(false)}
+                                            data-testid="bulk-enable-btn"
+                                        >
+                                            Enable
+                                        </Button>
+                                    )}
                                 </div>
                             ) : (
                                 <div className="w-full sm:w-64 animate-in fade-in slide-in-from-left-4 duration-200">
@@ -803,14 +820,10 @@ export const DomainDetails: React.FC = () => {
                                                             data-testid={`select-record-${rr.name}`}
                                                             className={cn(
                                                                 'transition-colors focus:outline-none',
-                                                                isSelected ? 'text-primary' : 'text-muted-foreground/40 hover:text-muted-foreground'
+                                                                isSelected ? 'text-primary' : 'text-muted-foreground/40 hover:text-muted-foreground',
                                                             )}
                                                         >
-                                                            {isSelected ? (
-                                                                <CheckSquare className="size-4" />
-                                                            ) : (
-                                                                <Square className="size-4" />
-                                                            )}
+                                                            {isSelected ? <CheckSquare className="size-4" /> : <Square className="size-4" />}
                                                         </button>
                                                     </td>
                                                     <td className="px-6 py-4">

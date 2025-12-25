@@ -136,5 +136,4 @@ describe('Domains Page (Live API)', () => {
         // Restore correct config
         apiClient.configure({ baseUrl: TEST_BASE_URL });
     });
-
 });

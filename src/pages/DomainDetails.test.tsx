@@ -293,7 +293,7 @@ describe('DomainDetails Page (Live API)', () => {
                 { timeout: 5000 },
             );
         } finally {
-            await pdns.deleteZone(uniqueZone).catch(() => { });
+            await pdns.deleteZone(uniqueZone).catch(() => {});
         }
     }, 15000);
 
@@ -363,14 +363,14 @@ describe('DomainDetails Page (Live API)', () => {
                 { timeout: 5000 },
             );
         } finally {
-            await pdns.deleteZone(uniqueZone).catch(() => { });
+            await pdns.deleteZone(uniqueZone).catch(() => {});
         }
     }, 15000);
 
     it('adds and displays a LUA record', async () => {
         const user = userEvent.setup();
         const luaRecordName = 'lua.' + testZoneName;
-        const luaContent = 'A "ifportup(443, {\'192.0.2.1\', \'192.0.2.2\'})"';
+        const luaContent = "A \"ifportup(443, {'192.0.2.1', '192.0.2.2'})\"";
 
         renderWithRouter();
         await screen.findByText('www.' + testZoneName);
@@ -396,19 +396,22 @@ describe('DomainDetails Page (Live API)', () => {
 
         await user.click(screen.getByTestId('save-record-btn'));
 
-        await waitFor(async () => {
-            // Check UI
-            expect(screen.getByText(luaRecordName)).toBeInTheDocument();
-            // Use queryByText with a partial match or regex to be more resilient to invisible chars or normalization
-            const contentElement = screen.getByText((content) => content.includes('ifportup'));
-            expect(contentElement).toBeInTheDocument();
+        await waitFor(
+            async () => {
+                // Check UI
+                expect(screen.getByText(luaRecordName)).toBeInTheDocument();
+                // Use queryByText with a partial match or regex to be more resilient to invisible chars or normalization
+                const contentElement = screen.getByText((content) => content.includes('ifportup'));
+                expect(contentElement).toBeInTheDocument();
 
-            // Check details via API
-            const zone = await pdns.getZone(testZoneName);
-            const rrset = zone.rrsets.find((r) => r.name === luaRecordName && r.type === 'LUA');
-            expect(rrset).toBeDefined();
-            expect(rrset?.records[0].content).toBe(luaContent);
-        }, { timeout: 5000 });
+                // Check details via API
+                const zone = await pdns.getZone(testZoneName);
+                const rrset = zone.rrsets.find((r) => r.name === luaRecordName && r.type === 'LUA');
+                expect(rrset).toBeDefined();
+                expect(rrset?.records[0].content).toBe(luaContent);
+            },
+            { timeout: 5000 },
+        );
     });
 
     it('performs bulk operations (select, delete, disable/enable)', async () => {
@@ -426,13 +429,16 @@ describe('DomainDetails Page (Live API)', () => {
             { name: 'r3.' + bulkZone, content: '3.3.3.3' },
         ];
 
-        await pdns.patchZone(bulkZone, records.map(r => ({
-            name: r.name,
-            type: 'A',
-            ttl: 300,
-            changetype: 'REPLACE',
-            records: [{ content: r.content, disabled: false }]
-        })));
+        await pdns.patchZone(
+            bulkZone,
+            records.map((r) => ({
+                name: r.name,
+                type: 'A',
+                ttl: 300,
+                changetype: 'REPLACE',
+                records: [{ content: r.content, disabled: false }],
+            })),
+        );
 
         renderWithRouter([`/domains/${bulkZone}`]);
         await screen.findByText('r1.' + bulkZone);
@@ -457,12 +463,15 @@ describe('DomainDetails Page (Live API)', () => {
         const confirmBtn = await screen.findByRole('button', { name: /disable all/i });
         await user.click(confirmBtn);
 
-        await waitFor(async () => {
-            const zone = await pdns.getZone(bulkZone);
-            const aRecords = zone.rrsets.filter(r => r.type === 'A' && r.name.includes('r'));
-            expect(aRecords.length).toBe(3);
-            expect(aRecords.every(r => r.records[0].disabled)).toBe(true);
-        }, { timeout: 10000 });
+        await waitFor(
+            async () => {
+                const zone = await pdns.getZone(bulkZone);
+                const aRecords = zone.rrsets.filter((r) => r.type === 'A' && r.name.includes('r'));
+                expect(aRecords.length).toBe(3);
+                expect(aRecords.every((r) => r.records[0].disabled)).toBe(true);
+            },
+            { timeout: 10000 },
+        );
 
         // 4. Bulk Enable
         await user.click(await screen.findByTestId('select-all-btn'));
@@ -470,11 +479,14 @@ describe('DomainDetails Page (Live API)', () => {
         const confirmEnableBtn = await screen.findByRole('button', { name: /enable all/i });
         await user.click(confirmEnableBtn);
 
-        await waitFor(async () => {
-            const zone = await pdns.getZone(bulkZone);
-            const aRecords = zone.rrsets.filter(r => r.type === 'A' && r.name.includes('r'));
-            expect(aRecords.every(r => !r.records[0].disabled)).toBe(true);
-        }, { timeout: 10000 });
+        await waitFor(
+            async () => {
+                const zone = await pdns.getZone(bulkZone);
+                const aRecords = zone.rrsets.filter((r) => r.type === 'A' && r.name.includes('r'));
+                expect(aRecords.every((r) => !r.records[0].disabled)).toBe(true);
+            },
+            { timeout: 10000 },
+        );
 
         // 5. Bulk Delete
         await user.click(await screen.findByTestId('select-all-btn'));
@@ -482,13 +494,16 @@ describe('DomainDetails Page (Live API)', () => {
         const confirmDeleteBtn = await screen.findByRole('button', { name: /delete all/i });
         await user.click(confirmDeleteBtn);
 
-        await waitFor(async () => {
-            const zone = await pdns.getZone(bulkZone);
-            const aRecords = zone.rrsets.filter(r => r.type === 'A' && r.name.includes('r'));
-            expect(aRecords.length).toBe(0);
-        }, { timeout: 10000 });
+        await waitFor(
+            async () => {
+                const zone = await pdns.getZone(bulkZone);
+                const aRecords = zone.rrsets.filter((r) => r.type === 'A' && r.name.includes('r'));
+                expect(aRecords.length).toBe(0);
+            },
+            { timeout: 10000 },
+        );
 
-        await pdns.deleteZone(bulkZone).catch(() => { });
+        await pdns.deleteZone(bulkZone).catch(() => {});
     });
     it('supports range selection with Shift key', async () => {
         const user = userEvent.setup();
@@ -520,7 +535,7 @@ describe('DomainDetails Page (Live API)', () => {
         await user.click(screen.getByTestId('select-record-r3.' + shiftZoneAbs));
         await user.keyboard('{/Shift}');
 
-        // SOA (1) + r1, r2, r3? 
+        // SOA (1) + r1, r2, r3?
         // Let's verify exactly which rows are selected.
         // The badge should show 3 selected if lastSelectedKey was r1 and we clicked r3.
         expect(screen.getByTestId('selection-count-badge')).toHaveTextContent('3 Selected');
@@ -531,7 +546,7 @@ describe('DomainDetails Page (Live API)', () => {
         await user.keyboard('{/Shift}');
         expect(screen.getByTestId('selection-count-badge')).toHaveTextContent('5 Selected');
 
-        await pdns.deleteZone(shiftZoneAbs).catch(() => { });
+        await pdns.deleteZone(shiftZoneAbs).catch(() => {});
     });
 
     it('duplicates a record', async () => {
@@ -567,7 +582,7 @@ describe('DomainDetails Page (Live API)', () => {
             expect(elements.length).toBeGreaterThanOrEqual(2);
 
             const zone = await pdns.getZone(testZoneName);
-            const txtRecords = zone.rrsets.filter(r => r.name === sourceRecordName && r.type === 'TXT');
+            const txtRecords = zone.rrsets.filter((r) => r.name === sourceRecordName && r.type === 'TXT');
             expect(txtRecords[0].records.length).toBe(2);
         });
     });

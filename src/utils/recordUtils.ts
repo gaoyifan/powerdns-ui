@@ -20,4 +20,3 @@ export const normalizeRecordName = (name: string, domainName: string) => {
     }
     return rrName;
 };
-

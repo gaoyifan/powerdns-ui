@@ -41,7 +41,6 @@ export const zoneService = {
             if (defaultZone.kind) {
                 kind = defaultZone.kind as any;
             }
-
         } catch (e) {
             // If default zone fetch fails, use fallbacks
             console.warn(`Could not fetch default zone attributes for ${domainName}, using fallbacks.`, e);
