@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Plus, ChevronRight, LayoutList, ShieldCheck, Search, Pencil, FileUp, Eye, EyeOff, Trash2, CheckSquare, Square } from 'lucide-react';
+import { Plus, ChevronRight, LayoutList, ShieldCheck, Search, Pencil, FileUp, Eye, EyeOff, Trash2, CheckSquare, Square, CopyPlus } from 'lucide-react';
 import { zoneService } from '../api/zoneService';
 import type { RecordWithView } from '../types/domain';
 import { useDomainRecords } from '../hooks/useDomainRecords';
@@ -33,7 +33,14 @@ export const DomainDetails: React.FC = () => {
     const [editingRecordKey, setEditingRecordKey] = useState<string | null>(null);
 
     // Record Creation State
-    const [isAddingRecord, setIsAddingRecord] = useState(false);
+    const [addingRecordData, setAddingRecordData] = useState<{
+        name: string;
+        type: string;
+        ttl: number;
+        content: string;
+        view: string;
+        comments: any[];
+    } | null>(null);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
     // Search State
@@ -442,6 +449,19 @@ export const DomainDetails: React.FC = () => {
         setLastSelectedKey(key);
     };
 
+    const handleDuplicateRecord = (record: RecordWithView) => {
+        setAddingRecordData({
+            name: record.name,
+            type: record.type,
+            ttl: record.ttl,
+            content: '', // Clear content as requested
+            view: record.view,
+            comments: record.comments.map(c => c.content),
+        });
+        // Scroll to top or just let the new row appear
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
     const handleAddRecord = async (data: { name: string; type: string; ttl: number; content: string; view: string; comments: string[] }) => {
         if (!domainName) return;
         try {
@@ -470,8 +490,7 @@ export const DomainDetails: React.FC = () => {
             }
 
             await zoneService.patchZone(targetZoneId, ops);
-
-            setIsAddingRecord(false);
+            setAddingRecordData(null); // Clear addingRecordData after successful add
             refetch();
             notify({ type: 'success', message: 'New record added successfully' });
         } catch (err: unknown) {
@@ -557,7 +576,22 @@ export const DomainDetails: React.FC = () => {
                     <Button variant="ghost" leadingIcon={FileUp} onClick={() => setIsImportModalOpen(true)} size="lg">
                         Import
                     </Button>
-                    <Button variant="primary" leadingIcon={Plus} onClick={() => setIsAddingRecord(true)} size="lg" disabled={isAddingRecord}>
+                    <Button
+                        variant="primary"
+                        leadingIcon={Plus}
+                        onClick={() =>
+                            setAddingRecordData({
+                                name: '',
+                                type: 'A',
+                                ttl: 3600,
+                                content: '',
+                                view: 'default',
+                                comments: [],
+                            })
+                        }
+                        size="lg"
+                        disabled={!!addingRecordData}
+                    >
                         Add Record
                     </Button>
                 </div>
@@ -674,19 +708,12 @@ export const DomainDetails: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-border/60">
-                                    {isAddingRecord && (
+                                    {addingRecordData && (
                                         <InlineEditRow
-                                            record={{
-                                                name: '',
-                                                type: 'A',
-                                                ttl: 3600,
-                                                content: '',
-                                                view: 'default',
-                                                comments: [],
-                                            }}
+                                            record={addingRecordData}
                                             availableViews={availableViews}
                                             onSave={handleAddRecord}
-                                            onCancel={() => setIsAddingRecord(false)}
+                                            onCancel={() => setAddingRecordData(null)}
                                         />
                                     )}
                                     {filteredRecords.length === 0 ? (
@@ -795,6 +822,16 @@ export const DomainDetails: React.FC = () => {
                                                                 title={rr.disabled ? 'Enable Record' : 'Disable Record'}
                                                             >
                                                                 {rr.disabled ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="size-8 text-muted-foreground hover:text-foreground"
+                                                                onClick={() => handleDuplicateRecord(rr)}
+                                                                title="Duplicate Record"
+                                                                data-testid="duplicate-record-btn"
+                                                            >
+                                                                <CopyPlus className="size-4" />
                                                             </Button>
                                                             <Button
                                                                 variant="ghost"

@@ -533,4 +533,42 @@ describe('DomainDetails Page (Live API)', () => {
 
         await pdns.deleteZone(shiftZoneAbs).catch(() => { });
     });
+
+    it('duplicates a record', async () => {
+        const user = userEvent.setup();
+        const sourceRecordName = 'source.' + testZoneName;
+        await pdns.patchZone(testZoneName, [
+            { name: sourceRecordName, type: 'TXT', ttl: 300, changetype: 'REPLACE', records: [{ content: '"original content"' }] },
+        ]);
+
+        renderWithRouter();
+        await screen.findByText(sourceRecordName);
+
+        // 1. Click duplicate button
+        const row = (await screen.findByText(sourceRecordName)).closest('tr');
+        const rowDuplicateBtn = within(row!).getByTestId('duplicate-record-btn');
+        await user.click(rowDuplicateBtn);
+
+        // 2. Check if the "Add Record" row appeared with pre-filled values
+        const tbody = document.querySelector('tbody');
+        const firstRow = tbody!.querySelector('tr');
+        const rowInputs = within(firstRow!).getAllByRole('textbox');
+
+        expect(rowInputs[0]).toHaveValue(sourceRecordName);
+        expect(rowInputs[1]).toHaveValue(''); // Content should be empty
+
+        // 3. Type new content and save
+        await user.type(rowInputs[1], 'duplicated content');
+        await user.click(screen.getByTestId('save-record-btn'));
+
+        // 4. Verify in UI and API
+        await waitFor(async () => {
+            const elements = screen.getAllByText(sourceRecordName);
+            expect(elements.length).toBeGreaterThanOrEqual(2);
+
+            const zone = await pdns.getZone(testZoneName);
+            const txtRecords = zone.rrsets.filter(r => r.name === sourceRecordName && r.type === 'TXT');
+            expect(txtRecords[0].records.length).toBe(2);
+        });
+    });
 });
