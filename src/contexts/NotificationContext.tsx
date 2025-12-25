@@ -96,7 +96,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                             <Button variant="ghost" onClick={() => handleConfirm(false)}>
                                 {confirmState.cancelText || 'Cancel'}
                             </Button>
-                            <Button variant="primary" onClick={() => handleConfirm(true)}>
+                            <Button variant="primary" onClick={() => handleConfirm(true)} autoFocus>
                                 {confirmState.confirmText || 'Confirm'}
                             </Button>
                         </ModalFooter>
