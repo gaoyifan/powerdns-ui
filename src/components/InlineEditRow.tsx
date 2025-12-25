@@ -67,6 +67,7 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
         'CNAME',
         'DNAME',
         'HTTPS',
+        'LUA',
         'MX',
         'NAPTR',
         'NS',

@@ -366,4 +366,43 @@ describe('DomainDetails Page (Live API)', () => {
             await pdns.deleteZone(uniqueZone).catch(() => { });
         }
     }, 15000);
+
+    it('adds and displays a LUA record', async () => {
+        const user = userEvent.setup();
+        const luaRecordName = 'lua.' + testZoneName;
+        const luaContent = 'A "ifportup(443, {\'192.0.2.1\', \'192.0.2.2\'})"';
+
+        renderWithRouter();
+        await screen.findByText('www.' + testZoneName);
+
+        await user.click(screen.getByRole('button', { name: /add record/i }));
+
+        const tbody = document.querySelector('tbody');
+        const firstRow = tbody!.querySelector('tr');
+        const combos = within(firstRow!).getAllByRole('combobox');
+        const inputs = within(firstRow!).getAllByRole('textbox');
+
+        // Change type to LUA
+        await user.selectOptions(combos[1], 'LUA');
+
+        // Type record name and content
+        await user.clear(inputs[0]);
+        await user.type(inputs[0], luaRecordName);
+        await user.clear(inputs[1]);
+        await user.type(inputs[1], luaContent);
+
+        await user.click(screen.getByTestId('save-record-btn'));
+
+        await waitFor(async () => {
+            // Check UI
+            expect(screen.getByText(luaRecordName)).toBeInTheDocument();
+            expect(screen.getByText(luaContent)).toBeInTheDocument();
+
+            // Check details via API
+            const zone = await pdns.getZone(testZoneName);
+            const rrset = zone.rrsets.find((r) => r.name === luaRecordName && r.type === 'LUA');
+            expect(rrset).toBeDefined();
+            expect(rrset?.records[0].content).toBe(luaContent);
+        });
+    });
 });
