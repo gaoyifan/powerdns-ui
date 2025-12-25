@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Plus, ChevronRight, LayoutList, ShieldCheck, Search, Pencil, FileUp, Eye, EyeOff, Trash2, CheckSquare, Square, CopyPlus, Copy, Check } from 'lucide-react';
+import { Plus, ChevronRight, LayoutList, ShieldCheck, Search, Pencil, FileUp, Eye, EyeOff, Trash2, CheckSquare, Square, CopyPlus, Copy, Check, X } from 'lucide-react';
 import { zoneService } from '../api/zoneService';
 import type { RecordWithView } from '../types/domain';
 import { useDomainRecords } from '../hooks/useDomainRecords';
@@ -644,63 +644,72 @@ export const DomainDetails: React.FC = () => {
                             </CardTitle>
                             <CardDescription>Unified list of records. Click "Edit" to modify a record inline.</CardDescription>
                         </div>
-                        <div className="w-full sm:w-72">
-                            <div className="flex items-center gap-2">
-                                {selectedKeys.size > 0 && (
-                                    <div className="flex items-center gap-2 mr-2 animate-in fade-in slide-in-from-right-4 duration-200">
-                                        <Badge variant="default" data-testid="selection-count-badge" className="h-9 px-3 text-xs uppercase tracking-wider">
-                                            {selectedKeys.size} Selected
-                                        </Badge>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            leadingIcon={Trash2}
-                                            className="text-destructive hover:bg-destructive/10 h-9"
-                                            onClick={handleBulkDelete}
-                                            data-testid="bulk-delete-btn"
-                                        >
-                                            Delete
-                                        </Button>
-                                        {Array.from(selectedKeys).some(key => {
-                                            const rr = filteredRecords.find(r => getRecordKey(r) === key);
-                                            return rr && !rr.disabled;
-                                        }) && (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    leadingIcon={EyeOff}
-                                                    className="text-muted-foreground hover:text-foreground h-9"
-                                                    onClick={() => handleBulkToggleDisabled(true)}
-                                                    data-testid="bulk-disable-btn"
-                                                >
-                                                    Disable
-                                                </Button>
-                                            )}
-                                        {Array.from(selectedKeys).some(key => {
-                                            const rr = filteredRecords.find(r => getRecordKey(r) === key);
-                                            return rr && rr.disabled;
-                                        }) && (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    leadingIcon={Eye}
-                                                    className="text-muted-foreground hover:text-foreground h-9"
-                                                    onClick={() => handleBulkToggleDisabled(false)}
-                                                    data-testid="bulk-enable-btn"
-                                                >
-                                                    Enable
-                                                </Button>
-                                            )}
-                                    </div>
-                                )}
-                                <Input
-                                    placeholder="Search records..."
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    leadingIcon={Search}
-                                    block
-                                />
-                            </div>
+                        <div className="flex flex-1 items-center justify-end min-w-0">
+                            {selectedKeys.size > 0 ? (
+                                <div className="flex items-center gap-1.5 shrink-0 animate-in fade-in slide-in-from-right-4 duration-200">
+                                    <Button
+                                        variant="secondary"
+                                        size="sm"
+                                        className="h-9 px-3 text-xs uppercase tracking-wider font-bold bg-primary text-primary-foreground hover:bg-primary/90 border-none group/clear"
+                                        onClick={() => setSelectedKeys(new Set())}
+                                        data-testid="selection-count-badge"
+                                        title="Clear selection and show search"
+                                    >
+                                        {selectedKeys.size} Selected
+                                        <X className="size-3.5 ml-1 opacity-60 group-hover/clear:opacity-100 transition-opacity" />
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        leadingIcon={Trash2}
+                                        className="text-destructive hover:bg-destructive/10 h-9"
+                                        onClick={handleBulkDelete}
+                                        data-testid="bulk-delete-btn"
+                                    >
+                                        Delete
+                                    </Button>
+                                    {Array.from(selectedKeys).some(key => {
+                                        const rr = filteredRecords.find(r => getRecordKey(r) === key);
+                                        return rr && !rr.disabled;
+                                    }) && (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                leadingIcon={EyeOff}
+                                                className="text-muted-foreground hover:text-foreground h-9"
+                                                onClick={() => handleBulkToggleDisabled(true)}
+                                                data-testid="bulk-disable-btn"
+                                            >
+                                                Disable
+                                            </Button>
+                                        )}
+                                    {Array.from(selectedKeys).some(key => {
+                                        const rr = filteredRecords.find(r => getRecordKey(r) === key);
+                                        return rr && rr.disabled;
+                                    }) && (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                leadingIcon={Eye}
+                                                className="text-muted-foreground hover:text-foreground h-9"
+                                                onClick={() => handleBulkToggleDisabled(false)}
+                                                data-testid="bulk-enable-btn"
+                                            >
+                                                Enable
+                                            </Button>
+                                        )}
+                                </div>
+                            ) : (
+                                <div className="w-full sm:w-64 animate-in fade-in slide-in-from-left-4 duration-200">
+                                    <Input
+                                        placeholder="Search records..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        leadingIcon={Search}
+                                        block
+                                    />
+                                </div>
+                            )}
                         </div>
                     </div>
                 </CardHeader>

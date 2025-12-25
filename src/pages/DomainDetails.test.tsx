@@ -571,4 +571,27 @@ describe('DomainDetails Page (Live API)', () => {
             expect(txtRecords[0].records.length).toBe(2);
         });
     });
+
+    it('can clear selection', async () => {
+        const user = userEvent.setup();
+        renderWithRouter();
+
+        // Wait for records
+        const checkboxes = await screen.findAllByTestId(/^select-record-/);
+
+        // Select first two
+        await user.click(checkboxes[0]);
+        await user.click(checkboxes[1]);
+
+        const clearBtn = screen.getByTestId('selection-count-badge');
+        expect(clearBtn).toHaveTextContent('2 Selected');
+
+        // Click to clear
+        await user.click(clearBtn);
+
+        // Button should disappear as selectedKeys.size becomes 0
+        await waitFor(() => {
+            expect(screen.queryByTestId('selection-count-badge')).not.toBeInTheDocument();
+        });
+    });
 });
