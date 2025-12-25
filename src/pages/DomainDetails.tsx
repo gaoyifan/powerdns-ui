@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Plus, ChevronRight, LayoutList, ShieldCheck, Search, Pencil, FileUp, Eye, EyeOff, Trash2, CheckSquare, Square, CopyPlus } from 'lucide-react';
+import { Plus, ChevronRight, LayoutList, ShieldCheck, Search, Pencil, FileUp, Eye, EyeOff, Trash2, CheckSquare, Square, CopyPlus, Copy, Check } from 'lucide-react';
 import { zoneService } from '../api/zoneService';
 import type { RecordWithView } from '../types/domain';
 import { useDomainRecords } from '../hooks/useDomainRecords';
@@ -23,6 +23,33 @@ import { useNotification } from '../contexts/NotificationContext';
 import { cn } from '../lib/utils';
 import { formatRecordContent, normalizeRecordName } from '../utils/recordUtils';
 import { encodeMetadata, decodeMetadata, COMMENT_RR_TYPE } from '../utils/dns';
+
+const CopyButton = ({ text, className }: { text: string; className?: string }) => {
+    const [copied, setCopied] = useState(false);
+    const { notify } = useNotification();
+
+    const handleCopy = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(text);
+        setCopied(true);
+        notify({ type: 'success', message: 'Copied to clipboard' });
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    return (
+        <button
+            onClick={handleCopy}
+            className={cn(
+                "p-1 rounded-md hover:bg-muted transition-all duration-200",
+                copied ? "text-green-600 bg-green-50" : "text-muted-foreground hover:text-foreground",
+                className
+            )}
+            title="Copy to clipboard"
+        >
+            {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+        </button>
+    );
+};
 
 export const DomainDetails: React.FC = () => {
     const { notify, confirm } = useNotification();
@@ -781,7 +808,7 @@ export const DomainDetails: React.FC = () => {
                                                         <Badge variant={rr.view === 'default' ? 'secondary' : 'default'}>{rr.view}</Badge>
                                                     </td>
                                                     <td className="px-6 py-4">
-                                                        <div className="flex items-center gap-2">
+                                                        <div className="flex items-center gap-2 group/field">
                                                             <span
                                                                 className={cn(
                                                                     'text-sm',
@@ -790,6 +817,7 @@ export const DomainDetails: React.FC = () => {
                                                             >
                                                                 {rr.name}
                                                             </span>
+                                                            <CopyButton text={rr.name} className="opacity-0 group-hover/field:opacity-100" />
                                                             {rr.disabled && (
                                                                 <Badge
                                                                     variant="outline"
@@ -807,7 +835,10 @@ export const DomainDetails: React.FC = () => {
                                                     </td>
                                                     <td className="px-6 py-4 text-sm text-muted-foreground">{rr.ttl}</td>
                                                     <td className="px-6 py-4 text-sm font-mono text-muted-foreground break-all">
-                                                        <div className="py-0.5">{rr.content}</div>
+                                                        <div className="flex items-center gap-2 group/field">
+                                                            <div className="py-0.5">{rr.content}</div>
+                                                            <CopyButton text={rr.content} className="opacity-0 group-hover/field:opacity-100 flex-shrink-0" />
+                                                        </div>
                                                     </td>
                                                     <td className="px-6 py-4 text-sm text-muted-foreground break-all">
                                                         {rr.comments?.map((c) => c.content).join('; ') || ''}
