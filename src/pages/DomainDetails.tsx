@@ -1,8 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Plus, ChevronRight, LayoutList, ShieldCheck, Search, Pencil, FileUp, Eye, EyeOff } from 'lucide-react';
+import { Plus, ChevronRight, LayoutList, ShieldCheck, Search, Pencil, FileUp, Eye, EyeOff, Trash2, CheckSquare, Square } from 'lucide-react';
 import { zoneService } from '../api/zoneService';
-import type { RRSet } from '../types/api';
 import type { RecordWithView } from '../types/domain';
 import { useDomainRecords } from '../hooks/useDomainRecords';
 import {
@@ -26,7 +25,7 @@ import { formatRecordContent, normalizeRecordName } from '../utils/recordUtils';
 import { encodeMetadata, decodeMetadata, COMMENT_RR_TYPE } from '../utils/dns';
 
 export const DomainDetails: React.FC = () => {
-    const { notify } = useNotification();
+    const { notify, confirm } = useNotification();
     const { name: domainName } = useParams<{ name: string }>();
     const { unifiedRecords: rawRecords, availableViews, loading, error, refetch } = useDomainRecords(domainName);
 
@@ -39,6 +38,12 @@ export const DomainDetails: React.FC = () => {
 
     // Search State
     const [searchQuery, setSearchQuery] = useState('');
+
+    // Selection State
+    const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+    const [lastSelectedKey, setLastSelectedKey] = useState<string | null>(null);
+
+    const getRecordKey = (rr: RecordWithView) => `${rr.zoneId}-${rr.name}-${rr.type}-${rr.content}`;
 
     const unifiedRecords = useMemo(() => {
         if (!rawRecords) return [];
@@ -238,72 +243,203 @@ export const DomainDetails: React.FC = () => {
         }
     };
 
-    const handleToggleDisabled = async (record: RecordWithView) => {
-        try {
-            // Find sibling records in the same RRSet
-            const siblingRecords = unifiedRecords.filter(
-                (r) => r.name === record.name && r.type === record.type && r.view === record.view && r.content !== record.content,
+    const getToggleDisabledOps = (recordsToToggle: RecordWithView[], targetDisabled: boolean) => {
+        const opsByZone = new Map<string, any[]>();
+
+        // Group records by RRSet (zoneId|name|type|view)
+        const affectedRRSets = new Map<string, { zoneId: string; name: string; type: string; view: string; ttl: number }>();
+        recordsToToggle.forEach((rr) => {
+            const rrsetKey = `${rr.zoneId}|${rr.name}|${rr.type}|${rr.view}`;
+            if (!affectedRRSets.has(rrsetKey)) {
+                affectedRRSets.set(rrsetKey, { zoneId: rr.zoneId, name: rr.name, type: rr.type, view: rr.view, ttl: rr.ttl });
+            }
+        });
+
+        const toggleKeys = new Set(recordsToToggle.map(getRecordKey));
+
+        for (const [_, info] of affectedRRSets.entries()) {
+            if (!opsByZone.has(info.zoneId)) opsByZone.set(info.zoneId, []);
+            const ops = opsByZone.get(info.zoneId)!;
+
+            // Find ALL records for this RRSet
+            const allRrsetRecords = (unifiedRecords || []).filter(
+                (r) => r.name === info.name && r.type === info.type && r.view === info.view && r.zoneId === info.zoneId
             );
 
-            // Construct new records payload with the toggled state
-            const newRecordsPayload = [
-                ...siblingRecords.map((r) => ({ content: r.content, disabled: r.disabled })),
-                { content: record.content, disabled: !record.disabled },
-            ];
+            // Construct new records payload
+            const newRecordsPayload = allRrsetRecords.map((r) => ({
+                content: r.content,
+                disabled: toggleKeys.has(getRecordKey(r)) ? targetDisabled : r.disabled,
+            }));
 
-            const rrset: RRSet = {
-                name: record.name,
-                type: record.type,
-                ttl: record.ttl,
+            ops.push({
+                name: info.name,
+                type: info.type,
+                ttl: info.ttl,
                 changetype: 'REPLACE',
                 records: newRecordsPayload,
-            };
-
-            await zoneService.patchZone(record.zoneId, [rrset]);
-            refetch();
-            notify({ type: 'success', message: `Record ${record.disabled ? 'enabled' : 'disabled'} successfully` });
-        } catch (err: unknown) {
-            notify({
-                type: 'error',
-                title: 'Operation Failed',
-                message: err instanceof Error ? err.message : 'Unknown error',
             });
         }
+        return opsByZone;
+    };
+
+    const handleToggleDisabled = async (record: RecordWithView) => {
+        try {
+            const targetDisabled = !record.disabled;
+            const opsByZone = getToggleDisabledOps([record], targetDisabled);
+            await Promise.all(Array.from(opsByZone.entries()).map(([zoneId, ops]) => zoneService.patchZone(zoneId, ops)));
+            refetch();
+            notify({ type: 'success', message: `Record ${targetDisabled ? 'disabled' : 'enabled'} successfully` });
+        } catch (err: unknown) {
+            notify({ type: 'error', title: 'Operation Failed', message: err instanceof Error ? err.message : 'Unknown error' });
+        }
+    };
+
+    // --- Helper Functions for Operations ---
+
+    const getDeleteOps = (recordsToDelete: RecordWithView[]) => {
+        const opsByZone = new Map<string, any[]>();
+
+        // Group records by RRSet (zoneId|name|type|view)
+        const affectedRRSets = new Map<string, { zoneId: string; name: string; type: string; view: string; ttl: number }>();
+        recordsToDelete.forEach((rr) => {
+            const rrsetKey = `${rr.zoneId}|${rr.name}|${rr.type}|${rr.view}`;
+            if (!affectedRRSets.has(rrsetKey)) {
+                affectedRRSets.set(rrsetKey, { zoneId: rr.zoneId, name: rr.name, type: rr.type, view: rr.view, ttl: rr.ttl });
+            }
+        });
+
+        const deleteKeys = new Set(recordsToDelete.map(getRecordKey));
+
+        for (const [_, info] of affectedRRSets.entries()) {
+            if (!opsByZone.has(info.zoneId)) opsByZone.set(info.zoneId, []);
+            const ops = opsByZone.get(info.zoneId)!;
+
+            // Find ALL records for this RRSet
+            const allRrsetRecords = (unifiedRecords || []).filter(
+                (r) => r.name === info.name && r.type === info.type && r.view === info.view && r.zoneId === info.zoneId
+            );
+
+            // Records to KEEP (not in the set we are deleting)
+            const keepRecords = allRrsetRecords.filter((r) => !deleteKeys.has(getRecordKey(r)));
+
+            if (keepRecords.length === 0 || info.type === 'SOA') {
+                ops.push({ name: info.name, type: info.type, changetype: 'DELETE' });
+            } else {
+                ops.push({
+                    name: info.name,
+                    type: info.type,
+                    ttl: info.ttl,
+                    changetype: 'REPLACE',
+                    records: keepRecords.map((r) => ({ content: r.content, disabled: r.disabled })),
+                });
+            }
+
+            // Comments handling
+            allRrsetRecords
+                .filter((r) => deleteKeys.has(getRecordKey(r)))
+                .forEach((rr) => {
+                    if (rr.comments.length > 0) {
+                        ops.push({
+                            name: rr.name,
+                            type: COMMENT_RR_TYPE,
+                            ttl: rr.ttl,
+                            changetype: 'PRUNE',
+                            records: [{ content: encodeMetadata({ type: rr.type, content: rr.content, comment: rr.comments[0].content }) }],
+                        });
+                    }
+                });
+        }
+        return opsByZone;
     };
 
     const handleDeleteRecord = async (record: RecordWithView) => {
         try {
-            const ops: any[] = [
-                {
-                    name: record.name,
-                    type: record.type,
-                    ttl: record.ttl,
-                    changetype: record.type === 'SOA' ? ('DELETE' as const) : ('PRUNE' as const),
-                    records: record.type === 'SOA' ? [] : [{ content: record.content }],
-                },
-            ];
-
-            if (record.comments.length > 0) {
-                ops.push({
-                    name: record.name,
-                    type: COMMENT_RR_TYPE,
-                    ttl: record.ttl,
-                    changetype: 'PRUNE',
-                    records: [{ content: encodeMetadata({ type: record.type, content: record.content, comment: record.comments[0].content }) }],
-                });
-            }
-
-            await zoneService.patchZone(record.zoneId, ops);
+            const opsByZone = getDeleteOps([record]);
+            await Promise.all(Array.from(opsByZone.entries()).map(([zoneId, ops]) => zoneService.patchZone(zoneId, ops)));
             setEditingRecordKey(null);
             refetch();
             notify({ type: 'success', message: 'Record deleted successfully' });
         } catch (err: unknown) {
-            notify({
-                type: 'error',
-                title: 'Deletion Failed',
-                message: err instanceof Error ? err.message : 'Unknown error',
-            });
+            notify({ type: 'error', title: 'Deletion Failed', message: err instanceof Error ? err.message : 'Unknown error' });
         }
+    };
+
+    const handleBulkDelete = async () => {
+        const confirmed = await confirm({
+            title: 'Bulk Delete Records',
+            message: `Are you sure you want to delete ${selectedKeys.size} selected records? This action cannot be undone.`,
+            confirmText: 'Delete All',
+            cancelText: 'Cancel',
+        });
+        if (!confirmed) return;
+
+        try {
+            const selectedRecords = filteredRecords.filter((rr) => selectedKeys.has(getRecordKey(rr)));
+            const opsByZone = getDeleteOps(selectedRecords);
+            await Promise.all(Array.from(opsByZone.entries()).map(([zoneId, ops]) => zoneService.patchZone(zoneId, ops)));
+            setSelectedKeys(new Set());
+            refetch();
+            notify({ type: 'success', message: 'Selected records deleted successfully' });
+        } catch (err: unknown) {
+            notify({ type: 'error', title: 'Bulk Deletion Failed', message: err instanceof Error ? err.message : 'Unknown error' });
+        }
+    };
+
+    const handleBulkToggleDisabled = async (disabled: boolean) => {
+        const confirmed = await confirm({
+            title: disabled ? 'Bulk Disable Records' : 'Bulk Enable Records',
+            message: `Are you sure you want to ${disabled ? 'disable' : 'enable'} ${selectedKeys.size} selected records?`,
+            confirmText: disabled ? 'Disable All' : 'Enable All',
+            cancelText: 'Cancel',
+        });
+        if (!confirmed) return;
+
+        try {
+            const selectedRecords = filteredRecords.filter((rr) => selectedKeys.has(getRecordKey(rr)));
+            const opsByZone = getToggleDisabledOps(selectedRecords, disabled);
+            await Promise.all(Array.from(opsByZone.entries()).map(([zoneId, ops]) => zoneService.patchZone(zoneId, ops)));
+
+            setSelectedKeys(new Set());
+            refetch();
+            notify({ type: 'success', message: `Selected records ${disabled ? 'disabled' : 'enabled'} successfully` });
+        } catch (err: unknown) {
+            notify({ type: 'error', title: 'Bulk Update Failed', message: err instanceof Error ? err.message : 'Unknown error' });
+        }
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedKeys.size === filteredRecords.length && filteredRecords.length > 0) {
+            setSelectedKeys(new Set());
+        } else {
+            setSelectedKeys(new Set(filteredRecords.map(getRecordKey)));
+        }
+    };
+
+    const toggleSelectRecord = (key: string, isShift: boolean = false) => {
+        const newSelected = new Set(selectedKeys);
+        if (isShift && lastSelectedKey) {
+            const keys = filteredRecords.map(getRecordKey);
+            const start = keys.indexOf(lastSelectedKey);
+            const end = keys.indexOf(key);
+            if (start !== -1 && end !== -1) {
+                const [min, max] = [Math.min(start, end), Math.max(start, end)];
+                const rangeKeys = keys.slice(min, max + 1);
+                const shouldSelect = !selectedKeys.has(key);
+                rangeKeys.forEach((k) => {
+                    if (shouldSelect) newSelected.add(k);
+                    else newSelected.delete(k);
+                });
+            }
+        } else {
+            if (newSelected.has(key)) {
+                newSelected.delete(key);
+            } else {
+                newSelected.add(key);
+            }
+        }
+        setSelectedKeys(newSelected);
+        setLastSelectedKey(key);
     };
 
     const handleAddRecord = async (data: { name: string; type: string; ttl: number; content: string; view: string; comments: string[] }) => {
@@ -448,13 +584,62 @@ export const DomainDetails: React.FC = () => {
                             <CardDescription>Unified list of records. Click "Edit" to modify a record inline.</CardDescription>
                         </div>
                         <div className="w-full sm:w-72">
-                            <Input
-                                placeholder="Search records..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                leadingIcon={Search}
-                                block
-                            />
+                            <div className="flex items-center gap-2">
+                                {selectedKeys.size > 0 && (
+                                    <div className="flex items-center gap-2 mr-2 animate-in fade-in slide-in-from-right-4 duration-200">
+                                        <Badge variant="default" data-testid="selection-count-badge" className="h-9 px-3 text-xs uppercase tracking-wider">
+                                            {selectedKeys.size} Selected
+                                        </Badge>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            leadingIcon={Trash2}
+                                            className="text-destructive hover:bg-destructive/10 h-9"
+                                            onClick={handleBulkDelete}
+                                            data-testid="bulk-delete-btn"
+                                        >
+                                            Delete
+                                        </Button>
+                                        {Array.from(selectedKeys).some(key => {
+                                            const rr = filteredRecords.find(r => getRecordKey(r) === key);
+                                            return rr && !rr.disabled;
+                                        }) && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    leadingIcon={EyeOff}
+                                                    className="text-muted-foreground hover:text-foreground h-9"
+                                                    onClick={() => handleBulkToggleDisabled(true)}
+                                                    data-testid="bulk-disable-btn"
+                                                >
+                                                    Disable
+                                                </Button>
+                                            )}
+                                        {Array.from(selectedKeys).some(key => {
+                                            const rr = filteredRecords.find(r => getRecordKey(r) === key);
+                                            return rr && rr.disabled;
+                                        }) && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    leadingIcon={Eye}
+                                                    className="text-muted-foreground hover:text-foreground h-9"
+                                                    onClick={() => handleBulkToggleDisabled(false)}
+                                                    data-testid="bulk-enable-btn"
+                                                >
+                                                    Enable
+                                                </Button>
+                                            )}
+                                    </div>
+                                )}
+                                <Input
+                                    placeholder="Search records..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    leadingIcon={Search}
+                                    block
+                                />
+                            </div>
                         </div>
                     </div>
                 </CardHeader>
@@ -466,6 +651,19 @@ export const DomainDetails: React.FC = () => {
                             <table className="w-full text-left border-collapse">
                                 <thead>
                                     <tr className="bg-muted/30 border-b border-border">
+                                        <th className="px-6 py-4 w-[40px]">
+                                            <button
+                                                onClick={toggleSelectAll}
+                                                data-testid="select-all-btn"
+                                                className="text-muted-foreground hover:text-primary transition-colors focus:outline-none"
+                                            >
+                                                {selectedKeys.size === filteredRecords.length && filteredRecords.length > 0 ? (
+                                                    <CheckSquare className="size-4" />
+                                                ) : (
+                                                    <Square className="size-4" />
+                                                )}
+                                            </button>
+                                        </th>
                                         <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider w-[150px]">View</th>
                                         <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider w-[250px]">Name</th>
                                         <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider w-[145px]">Type</th>
@@ -499,8 +697,9 @@ export const DomainDetails: React.FC = () => {
                                         </tr>
                                     ) : (
                                         filteredRecords.map((rr) => {
-                                            const uniqueKey = `${rr.zoneId}-${rr.name}-${rr.type}-${rr.content}`;
+                                            const uniqueKey = getRecordKey(rr);
                                             const isEditing = editingRecordKey === uniqueKey;
+                                            const isSelected = selectedKeys.has(uniqueKey);
 
                                             if (isEditing) {
                                                 return (
@@ -529,8 +728,28 @@ export const DomainDetails: React.FC = () => {
                                                         'hover:bg-accent/40 transition-colors group',
                                                         rr.type === 'SOA' && 'bg-primary/[0.03] dark:bg-primary/10',
                                                         rr.disabled && 'opacity-60 grayscale-[0.5]',
+                                                        isSelected && 'bg-primary/5',
                                                     )}
                                                 >
+                                                    <td className="px-6 py-4">
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                toggleSelectRecord(uniqueKey, e.shiftKey);
+                                                            }}
+                                                            data-testid={`select-record-${rr.name}`}
+                                                            className={cn(
+                                                                'transition-colors focus:outline-none',
+                                                                isSelected ? 'text-primary' : 'text-muted-foreground/40 hover:text-muted-foreground'
+                                                            )}
+                                                        >
+                                                            {isSelected ? (
+                                                                <CheckSquare className="size-4" />
+                                                            ) : (
+                                                                <Square className="size-4" />
+                                                            )}
+                                                        </button>
+                                                    </td>
                                                     <td className="px-6 py-4">
                                                         <Badge variant={rr.view === 'default' ? 'secondary' : 'default'}>{rr.view}</Badge>
                                                     </td>

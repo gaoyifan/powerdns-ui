@@ -26,7 +26,7 @@ export interface RRSet {
     changetype?: 'REPLACE' | 'DELETE' | 'EXTEND' | 'PRUNE';
     records: {
         content: string;
-        disabled: boolean;
+        disabled?: boolean;
     }[];
 }
 

@@ -83,6 +83,7 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
 
     return (
         <tr className="bg-muted/30 border-b border-primary/20">
+            <td className="px-6 py-4"></td>
             <td className="px-6 py-4 align-top">
                 <Select
                     value={view}

@@ -380,7 +380,6 @@ describe('DomainDetails Page (Live API)', () => {
         const tbody = document.querySelector('tbody');
         const firstRow = tbody!.querySelector('tr');
         const combos = within(firstRow!).getAllByRole('combobox');
-        const inputs = within(firstRow!).getAllByRole('textbox');
 
         // Change type to LUA
         await user.selectOptions(combos[1], 'LUA');
@@ -410,5 +409,128 @@ describe('DomainDetails Page (Live API)', () => {
             expect(rrset).toBeDefined();
             expect(rrset?.records[0].content).toBe(luaContent);
         }, { timeout: 5000 });
+    });
+
+    it('performs bulk operations (select, delete, disable/enable)', async () => {
+        const user = userEvent.setup();
+        const bulkZone = `bulk-test-${Date.now()}.com.`;
+        await pdns.createZone({
+            name: bulkZone,
+            kind: 'Native',
+            nameservers: ['ns1.example.com.'],
+        });
+
+        const records = [
+            { name: 'r1.' + bulkZone, content: '1.1.1.1' },
+            { name: 'r2.' + bulkZone, content: '2.2.2.2' },
+            { name: 'r3.' + bulkZone, content: '3.3.3.3' },
+        ];
+
+        await pdns.patchZone(bulkZone, records.map(r => ({
+            name: r.name,
+            type: 'A',
+            ttl: 300,
+            changetype: 'REPLACE',
+            records: [{ content: r.content, disabled: false }]
+        })));
+
+        renderWithRouter([`/domains/${bulkZone}`]);
+        await screen.findByText('r1.' + bulkZone);
+
+        // 1. Select one record
+        await user.click(screen.getByTestId('select-record-r1.' + bulkZone));
+        await screen.findByTestId('selection-count-badge');
+        expect(screen.getByTestId('selection-count-badge')).toHaveTextContent(/1 Selected/i);
+
+        // 2. Select all
+        await user.click(screen.getByTestId('select-all-btn'));
+
+        // Count total rows (excluding header)
+        const totalRows = document.querySelectorAll('tbody tr').length;
+
+        await waitFor(() => {
+            expect(screen.getByTestId('selection-count-badge')).toHaveTextContent(new RegExp(`${totalRows} Selected`, 'i'));
+        });
+
+        // 3. Bulk Disable
+        await user.click(screen.getByTestId('bulk-disable-btn'));
+        const confirmBtn = await screen.findByRole('button', { name: /disable all/i });
+        await user.click(confirmBtn);
+
+        await waitFor(async () => {
+            const zone = await pdns.getZone(bulkZone);
+            const aRecords = zone.rrsets.filter(r => r.type === 'A' && r.name.includes('r'));
+            expect(aRecords.length).toBe(3);
+            expect(aRecords.every(r => r.records[0].disabled)).toBe(true);
+        }, { timeout: 10000 });
+
+        // 4. Bulk Enable
+        await user.click(await screen.findByTestId('select-all-btn'));
+        await user.click(await screen.findByTestId('bulk-enable-btn'));
+        const confirmEnableBtn = await screen.findByRole('button', { name: /enable all/i });
+        await user.click(confirmEnableBtn);
+
+        await waitFor(async () => {
+            const zone = await pdns.getZone(bulkZone);
+            const aRecords = zone.rrsets.filter(r => r.type === 'A' && r.name.includes('r'));
+            expect(aRecords.every(r => !r.records[0].disabled)).toBe(true);
+        }, { timeout: 10000 });
+
+        // 5. Bulk Delete
+        await user.click(await screen.findByTestId('select-all-btn'));
+        await user.click(await screen.findByTestId('bulk-delete-btn'));
+        const confirmDeleteBtn = await screen.findByRole('button', { name: /delete all/i });
+        await user.click(confirmDeleteBtn);
+
+        await waitFor(async () => {
+            const zone = await pdns.getZone(bulkZone);
+            const aRecords = zone.rrsets.filter(r => r.type === 'A' && r.name.includes('r'));
+            expect(aRecords.length).toBe(0);
+        }, { timeout: 10000 });
+
+        await pdns.deleteZone(bulkZone).catch(() => { });
+    });
+    it('supports range selection with Shift key', async () => {
+        const user = userEvent.setup();
+        const shiftZone = 'shift' + Math.random().toString(36).substring(7) + '.com';
+        const shiftZoneAbs = shiftZone + '.';
+        await pdns.createZone({ name: shiftZoneAbs, kind: 'Native', nameservers: ['ns1.example.com.'] });
+        await pdns.patchZone(shiftZoneAbs, [
+            { name: 'r1.' + shiftZoneAbs, type: 'A', ttl: 300, changetype: 'REPLACE', records: [{ content: '1.1.1.1' }] },
+            { name: 'r2.' + shiftZoneAbs, type: 'A', ttl: 300, changetype: 'REPLACE', records: [{ content: '1.1.1.2' }] },
+            { name: 'r3.' + shiftZoneAbs, type: 'A', ttl: 300, changetype: 'REPLACE', records: [{ content: '1.1.1.3' }] },
+            { name: 'r4.' + shiftZoneAbs, type: 'A', ttl: 300, changetype: 'REPLACE', records: [{ content: '1.1.1.4' }] },
+            { name: 'r5.' + shiftZoneAbs, type: 'A', ttl: 300, changetype: 'REPLACE', records: [{ content: '1.1.1.5' }] },
+        ]);
+
+        renderWithRouter([`/domains/${shiftZoneAbs}`]);
+
+        // Wait for records
+        await screen.findByText('r1.' + shiftZoneAbs);
+        await screen.findByText('r5.' + shiftZoneAbs);
+
+        // 1. Click r1
+        await user.click(screen.getByTestId('select-record-r1.' + shiftZoneAbs));
+        expect(screen.getByTestId('selection-count-badge')).toHaveTextContent('1 Selected');
+
+        // 2. Shift-click r3 (should select r1, r2, r3)
+        // Note: r2 order depends on the sorting (SOA, then others).
+        // r1, r2, r3, r4, r5 should be together after SOA.
+        await user.keyboard('{Shift>}');
+        await user.click(screen.getByTestId('select-record-r3.' + shiftZoneAbs));
+        await user.keyboard('{/Shift}');
+
+        // SOA (1) + r1, r2, r3? 
+        // Let's verify exactly which rows are selected.
+        // The badge should show 3 selected if lastSelectedKey was r1 and we clicked r3.
+        expect(screen.getByTestId('selection-count-badge')).toHaveTextContent('3 Selected');
+
+        // 3. Shift-click r5
+        await user.keyboard('{Shift>}');
+        await user.click(screen.getByTestId('select-record-r5.' + shiftZoneAbs));
+        await user.keyboard('{/Shift}');
+        expect(screen.getByTestId('selection-count-badge')).toHaveTextContent('5 Selected');
+
+        await pdns.deleteZone(shiftZoneAbs).catch(() => { });
     });
 });
