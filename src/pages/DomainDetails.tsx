@@ -386,6 +386,8 @@ export const DomainDetails: React.FC = () => {
                 });
             }
 
+            // ... (previous code)
+
             // Comments handling
             allRrsetRecords
                 .filter((r) => deleteKeys.has(getRecordKey(r)))
@@ -401,6 +403,34 @@ export const DomainDetails: React.FC = () => {
                     }
                 });
         }
+
+        // Sort operations to avoid conflicts:
+        // CNAME records should be processed first (especially deletions) to avoid conflict with other types (like A/AAAA).
+        for (const zoneId of opsByZone.keys()) {
+            const zoneOps = opsByZone.get(zoneId)!;
+            zoneOps.sort((a, b) => {
+                // Priority 1: DELETE/PRUNE operations should generally come before REPLACE/EXTEND
+                if (
+                    (a.changetype === 'DELETE' || a.changetype === 'PRUNE') &&
+                    !(b.changetype === 'DELETE' || b.changetype === 'PRUNE')
+                ) {
+                    return -1;
+                }
+                if (
+                    !(a.changetype === 'DELETE' || a.changetype === 'PRUNE') &&
+                    (b.changetype === 'DELETE' || b.changetype === 'PRUNE')
+                ) {
+                    return 1;
+                }
+
+                // Priority 2: CNAME types should come first
+                if (a.type === 'CNAME' && b.type !== 'CNAME') return -1;
+                if (a.type !== 'CNAME' && b.type === 'CNAME') return 1;
+
+                return 0;
+            });
+        }
+
         return opsByZone;
     };
 
