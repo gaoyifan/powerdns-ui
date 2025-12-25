@@ -39,7 +39,7 @@ export const useDomainRecords = (domainName: string | undefined) => {
                             type: rr.type,
                             ttl: rr.ttl,
                             content: record.content,
-                            disabled: record.disabled,
+                            disabled: !!record.disabled,
                             view: view,
                             zoneId: zone.id,
                             comments: [],
