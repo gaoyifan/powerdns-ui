@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { Toaster, toast } from 'sonner';
 import { Button, Modal, ModalHeader, ModalTitle, ModalDescription, ModalFooter } from '../components';
 
 export type NotificationType = 'success' | 'error' | 'info' | 'warning';
@@ -14,16 +13,14 @@ export interface Notification {
 }
 
 interface NotificationContextType {
-    notifications: Notification[];
     notify: (notification: Omit<Notification, 'id'>) => void;
-    dismiss: (id: string) => void;
+    dismiss: (id: string | number) => void;
     confirm: (options: { title: string; message: string; confirmText?: string; cancelText?: string }) => Promise<boolean>;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [notifications, setNotifications] = useState<Notification[]>([]);
     const [confirmState, setConfirmState] = useState<{
         resolve: (value: boolean) => void;
         title: string;
@@ -32,31 +29,36 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         cancelText?: string;
     } | null>(null);
 
-    const dismiss = useCallback((id: string) => {
-        setNotifications((prev) => prev.filter((n) => n.id !== id));
+    const dismiss = useCallback((id: string | number) => {
+        toast.dismiss(id);
     }, []);
 
-    const notify = useCallback(
-        (notification: Omit<Notification, 'id'>) => {
-            const id = Math.random().toString(36).substring(2, 9);
-            const newNotification = { ...notification, id };
-            setNotifications((prev) => [...prev, newNotification]);
+    const notify = useCallback((notification: Omit<Notification, 'id'>) => {
+        const { type, title, message, duration } = notification;
+        const options = {
+            description: title ? message : undefined,
+            duration: duration || 4000,
+        };
+        const toastMessage = title || message;
 
-            // Log to console for warning and error
-            if (notification.type === 'error') {
-                console.error(`[PDNS-UI] ${notification.title || 'Error'}: ${notification.message}`);
-            } else if (notification.type === 'warning') {
-                console.warn(`[PDNS-UI] ${notification.title || 'Warning'}: ${notification.message}`);
-            }
-
-            if (notification.duration !== 0) {
-                setTimeout(() => {
-                    dismiss(id);
-                }, notification.duration || 5000);
-            }
-        },
-        [dismiss],
-    );
+        switch (type) {
+            case 'success':
+                toast.success(toastMessage, options);
+                break;
+            case 'error':
+                console.error(`[PDNS-UI] ${title || 'Error'}: ${message}`);
+                toast.error(toastMessage, options);
+                break;
+            case 'warning':
+                console.warn(`[PDNS-UI] ${title || 'Warning'}: ${message}`);
+                toast.warning(toastMessage, options);
+                break;
+            case 'info':
+            default:
+                toast.message(toastMessage, options);
+                break;
+        }
+    }, []);
 
     const confirm = useCallback((options: { title: string; message: string; confirmText?: string; cancelText?: string }) => {
         return new Promise<boolean>((resolve) => {
@@ -78,37 +80,9 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     };
 
     return (
-        <NotificationContext.Provider value={{ notifications, notify, dismiss, confirm }}>
+        <NotificationContext.Provider value={{ notify, dismiss, confirm }}>
             {children}
-            {/* Global Toaster Container */}
-            <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-3 max-w-sm w-full pointer-events-none">
-                {notifications.map((n) => (
-                    <div
-                        key={n.id}
-                        className={cn(
-                            'pointer-events-auto flex items-start gap-4 p-4 rounded-2xl shadow-2xl border backdrop-blur-xl animate-in slide-in-from-bottom-4 fade-in duration-500',
-                            n.type === 'success' && 'bg-background/95 border-success/30',
-                            n.type === 'error' && 'bg-background/95 border-destructive/30',
-                            n.type === 'info' && 'bg-background/95 border-info/30',
-                            n.type === 'warning' && 'bg-background/95 border-warning/30',
-                        )}
-                    >
-                        <div className="mt-0.5 p-2 rounded-xl bg-muted/50">
-                            {n.type === 'success' && <CheckCircle2 className="size-5 text-success" />}
-                            {n.type === 'error' && <AlertCircle className="size-5 text-destructive" />}
-                            {n.type === 'info' && <Info className="size-5 text-info" />}
-                            {n.type === 'warning' && <AlertCircle className="size-5 text-warning" />}
-                        </div>
-                        <div className="flex-1 min-w-0 py-1">
-                            {n.title && <p className="font-bold text-sm tracking-tight mb-0.5">{n.title}</p>}
-                            <p className="text-sm text-muted-foreground leading-relaxed">{n.message}</p>
-                        </div>
-                        <button onClick={() => dismiss(n.id)} className="text-muted-foreground hover:text-foreground transition-colors p-1">
-                            <X className="size-4" />
-                        </button>
-                    </div>
-                ))}
-            </div>
+            <Toaster position="bottom-right" richColors closeButton theme="system" />
 
             {/* Global Confirmation Modal */}
             <Modal isOpen={!!confirmState} onClose={() => handleConfirm(false)}>
