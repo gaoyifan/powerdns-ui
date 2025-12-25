@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
     Plus,
@@ -99,7 +99,31 @@ export const DomainDetails: React.FC = () => {
     const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
     const [lastSelectedKey, setLastSelectedKey] = useState<string | null>(null);
 
+
     const getRecordKey = (rr: RecordWithView) => `${rr.zoneId}-${rr.name}-${rr.type}-${rr.content}`;
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                // Priority: Cancel Edit/Add -> Clear Selection
+                if (editingRecordKey) {
+                    setEditingRecordKey(null);
+                    return;
+                }
+                if (addingRecordData) {
+                    setAddingRecordData(null);
+                    return;
+                }
+                if (selectedKeys.size > 0) {
+                    setSelectedKeys(new Set());
+                    return;
+                }
+            }
+        };
+
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, [editingRecordKey, addingRecordData, selectedKeys]);
 
     const unifiedRecords = useMemo(() => {
         if (!rawRecords) return [];
