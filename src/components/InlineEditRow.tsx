@@ -83,8 +83,8 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
 
     return (
         <tr className="bg-muted/30 border-b border-primary/20">
-            <td className="px-6 py-4"></td>
-            <td className="px-6 py-4 align-top">
+            <td className="px-3 py-3"></td>
+            <td className="px-3 py-3 align-top">
                 <Select
                     value={view}
                     onChange={(e) => setView(e.target.value)}
@@ -94,10 +94,10 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
                     disabled={type === 'SOA'}
                 />
             </td>
-            <td className="px-6 py-4 align-top">
+            <td className="px-3 py-3 align-top">
                 <Input value={name} onChange={(e) => setName(e.target.value)} className="h-9 w-full" block disabled={type === 'SOA'} />
             </td>
-            <td className="px-6 py-4 align-top">
+            <td className="px-3 py-3 align-top">
                 <Select
                     value={type}
                     onChange={(e) => setType(e.target.value)}
@@ -105,9 +105,10 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
                     className="h-9 w-full text-sm"
                     block
                     disabled={type === 'SOA'}
+                    hideArrow
                 />
             </td>
-            <td className="px-6 py-4 align-top">
+            <td className="px-3 py-3 align-top">
                 <Input
                     type="number"
                     value={ttl}
@@ -116,7 +117,7 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
                     block
                 />
             </td>
-            <td className="px-6 py-4 align-top">
+            <td className="px-3 py-3 align-top">
                 {type === 'SOA' ? (
                     <div className="grid grid-cols-2 gap-2">
                         {(() => {
@@ -155,7 +156,7 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
                     />
                 )}
             </td>
-            <td className="px-6 py-4 align-top">
+            <td className="px-3 py-3 align-top">
                 <Input
                     value={comment}
                     onChange={(e) => setComment(e.target.value)}
@@ -168,8 +169,8 @@ export const InlineEditRow: React.FC<InlineEditRowProps> = ({ record, availableV
                     }}
                 />
             </td>
-            <td className="px-6 py-4 align-top">
-                <div className="flex items-center gap-1">
+            <td className="px-3 py-3 align-top">
+                <div className="flex items-center justify-end gap-1">
                     <Button
                         size="icon"
                         variant="ghost"

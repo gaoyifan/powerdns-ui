@@ -689,32 +689,32 @@ export const DomainDetails: React.FC = () => {
                                         const rr = filteredRecords.find((r) => getRecordKey(r) === key);
                                         return rr && !rr.disabled;
                                     }) && (
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            leadingIcon={EyeOff}
-                                            className="text-muted-foreground hover:text-foreground h-9"
-                                            onClick={() => handleBulkToggleDisabled(true)}
-                                            data-testid="bulk-disable-btn"
-                                        >
-                                            Disable
-                                        </Button>
-                                    )}
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                leadingIcon={EyeOff}
+                                                className="text-muted-foreground hover:text-foreground h-9"
+                                                onClick={() => handleBulkToggleDisabled(true)}
+                                                data-testid="bulk-disable-btn"
+                                            >
+                                                Disable
+                                            </Button>
+                                        )}
                                     {Array.from(selectedKeys).some((key) => {
                                         const rr = filteredRecords.find((r) => getRecordKey(r) === key);
                                         return rr && rr.disabled;
                                     }) && (
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            leadingIcon={Eye}
-                                            className="text-muted-foreground hover:text-foreground h-9"
-                                            onClick={() => handleBulkToggleDisabled(false)}
-                                            data-testid="bulk-enable-btn"
-                                        >
-                                            Enable
-                                        </Button>
-                                    )}
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                leadingIcon={Eye}
+                                                className="text-muted-foreground hover:text-foreground h-9"
+                                                onClick={() => handleBulkToggleDisabled(false)}
+                                                data-testid="bulk-enable-btn"
+                                            >
+                                                Enable
+                                            </Button>
+                                        )}
                                 </div>
                             ) : (
                                 <div className="w-full sm:w-64 animate-in fade-in slide-in-from-left-4 duration-200">
@@ -738,7 +738,7 @@ export const DomainDetails: React.FC = () => {
                             <table className="w-full text-left border-collapse">
                                 <thead>
                                     <tr className="bg-muted/30 border-b border-border">
-                                        <th className="px-6 py-4 w-[40px]">
+                                        <th className="px-3 py-3 w-[40px]">
                                             <button
                                                 onClick={toggleSelectAll}
                                                 data-testid="select-all-btn"
@@ -751,13 +751,13 @@ export const DomainDetails: React.FC = () => {
                                                 )}
                                             </button>
                                         </th>
-                                        <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider w-[150px]">View</th>
-                                        <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider w-[250px]">Name</th>
-                                        <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider w-[145px]">Type</th>
-                                        <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider w-[110px]">TTL</th>
-                                        <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider w-[25%]">Content</th>
-                                        <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Comment</th>
-                                        <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider w-[160px]">Actions</th>
+                                        <th className="px-3 py-3 text-xs font-bold text-muted-foreground uppercase tracking-wider min-w-[120px]">View</th>
+                                        <th className="px-3 py-3 text-xs font-bold text-muted-foreground uppercase tracking-wider min-w-[200px]">Name</th>
+                                        <th className="px-3 py-3 text-xs font-bold text-muted-foreground uppercase tracking-wider min-w-[100px]">Type</th>
+                                        <th className="px-3 py-3 text-xs font-bold text-muted-foreground uppercase tracking-wider min-w-[90px]">TTL</th>
+                                        <th className="px-3 py-3 text-xs font-bold text-muted-foreground uppercase tracking-wider min-w-[200px] w-auto">Content</th>
+                                        <th className="px-3 py-3 text-xs font-bold text-muted-foreground uppercase tracking-wider w-[200px]">Comment</th>
+                                        <th className="px-3 py-3 text-xs font-bold text-muted-foreground uppercase tracking-wider w-[120px] text-right">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-border/60">
@@ -811,7 +811,7 @@ export const DomainDetails: React.FC = () => {
                                                         isSelected && 'bg-primary/5',
                                                     )}
                                                 >
-                                                    <td className="px-6 py-4">
+                                                    <td className="px-3 py-3">
                                                         <button
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
@@ -826,14 +826,15 @@ export const DomainDetails: React.FC = () => {
                                                             {isSelected ? <CheckSquare className="size-4" /> : <Square className="size-4" />}
                                                         </button>
                                                     </td>
-                                                    <td className="px-6 py-4">
+                                                    <td className="px-3 py-3">
                                                         <Badge variant={rr.view === 'default' ? 'secondary' : 'default'}>{rr.view}</Badge>
                                                     </td>
-                                                    <td className="px-6 py-4">
+                                                    <td className="px-3 py-3">
                                                         <div className="flex items-center gap-2 group/field">
                                                             <span
+                                                                title={rr.name}
                                                                 className={cn(
-                                                                    'text-sm',
+                                                                    'text-sm truncate max-w-[200px] block',
                                                                     rr.disabled ? 'text-muted-foreground line-through' : 'text-foreground font-medium',
                                                                 )}
                                                             >
@@ -850,23 +851,23 @@ export const DomainDetails: React.FC = () => {
                                                             )}
                                                         </div>
                                                     </td>
-                                                    <td className="px-6 py-4">
+                                                    <td className="px-3 py-3">
                                                         <Badge variant="outline" className="bg-background">
                                                             {rr.type}
                                                         </Badge>
                                                     </td>
-                                                    <td className="px-6 py-4 text-sm text-muted-foreground">{rr.ttl}</td>
-                                                    <td className="px-6 py-4 text-sm font-mono text-muted-foreground break-all">
+                                                    <td className="px-3 py-3 text-sm text-muted-foreground">{rr.ttl}</td>
+                                                    <td className="px-3 py-3 text-sm font-mono text-muted-foreground break-all">
                                                         <div className="flex items-center gap-2 group/field">
                                                             <div className="py-0.5">{rr.content}</div>
                                                             <CopyButton text={rr.content} className="opacity-0 group-hover/field:opacity-100 flex-shrink-0" />
                                                         </div>
                                                     </td>
-                                                    <td className="px-6 py-4 text-sm text-muted-foreground break-all">
+                                                    <td className="px-3 py-3 text-sm text-muted-foreground break-all">
                                                         {rr.comments?.map((c) => c.content).join('; ') || ''}
                                                     </td>
-                                                    <td className="px-6 py-4">
-                                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <td className="px-3 py-3">
+                                                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                             <Button
                                                                 variant="ghost"
                                                                 size="icon"
