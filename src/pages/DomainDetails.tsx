@@ -180,7 +180,19 @@ export const DomainDetails: React.FC = () => {
                 if (a.view !== 'default' && b.view === 'default') return 1;
                 return a.view.localeCompare(b.view);
             }
-            return 0;
+
+            // Reverse domain parts sorting for other records
+            // e.g. "www.example.com" -> "com.example.www"
+            const getReverseKey = (name: string) => name.split('.').reverse().join('.');
+
+            const keyA = getReverseKey(a.name);
+            const keyB = getReverseKey(b.name);
+
+            const compareResult = keyA.localeCompare(keyB);
+            if (compareResult !== 0) return compareResult;
+
+            // If names are effectively same in hierarchical order, sort by type
+            return a.type.localeCompare(b.type);
         });
 
     const handleSaveRecord = async (
