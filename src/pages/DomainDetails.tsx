@@ -621,18 +621,34 @@ export const DomainDetails: React.FC = () => {
             const targetZoneId = await zoneService.ensureZoneExists(domainName, view);
 
             // PowerDNS requires exactly one record for EXTEND/PRUNE operations
-            const ops = recordsToImport.map((r) => ({
-                name: r.name,
-                type: r.type,
-                ttl: r.ttl,
-                changetype: 'EXTEND' as const,
-                records: [
-                    {
-                        content: formatRecordContent(r.content, r.type),
-                        disabled: false,
-                    },
-                ],
-            }));
+            const ops = recordsToImport.flatMap((r) => {
+                const formattedContent = formatRecordContent(r.content, r.type);
+                const recordOp = {
+                    name: r.name,
+                    type: r.type,
+                    ttl: r.ttl,
+                    changetype: 'EXTEND' as const,
+                    records: [
+                        {
+                            content: formattedContent,
+                            disabled: false,
+                        },
+                    ],
+                };
+
+                if (r.comment) {
+                    const commentOp = {
+                        name: r.name,
+                        type: COMMENT_RR_TYPE,
+                        ttl: r.ttl,
+                        changetype: 'EXTEND' as const,
+                        records: [{ content: encodeMetadata({ type: r.type, content: formattedContent, comment: r.comment }) }],
+                    };
+                    return [recordOp, commentOp];
+                }
+
+                return [recordOp];
+            });
 
             await zoneService.patchZone(targetZoneId, ops);
 

@@ -17,7 +17,23 @@ export interface ParsedRecord {
     type: string;
     ttl: number;
     content: string;
+    comment?: string;
 }
+
+const extractComment = (line: string): { cleanLine: string; comment: string | null } => {
+    let inQuote = false;
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') inQuote = !inQuote;
+        if (char === ';' && !inQuote) {
+            return {
+                cleanLine: line.substring(0, i),
+                comment: line.substring(i + 1).trim() || null,
+            };
+        }
+    }
+    return { cleanLine: line, comment: null };
+};
 
 export const ImportZoneModal: React.FC<ImportZoneModalProps> = ({ isOpen, onClose, onImport, availableViews, defaultView = 'default', domainName }) => {
     const [zoneText, setZoneText] = useState('');
@@ -30,6 +46,19 @@ export const ImportZoneModal: React.FC<ImportZoneModalProps> = ({ isOpen, onClos
         if (!zoneText.trim()) return { inZoneRecords: [], ignoredCount: 0 };
         try {
             const parsed = zonefile.parse(zoneText);
+
+            // Pre-process lines to extract comments
+            const lines = zoneText.split('\n');
+            const lineMetadata = lines.map((line, index) => {
+                const { cleanLine, comment } = extractComment(line);
+                return {
+                    originalIndex: index,
+                    cleanLine: cleanLine.trim(),
+                    comment,
+                    used: false
+                };
+            }).filter(l => l.cleanLine.length > 0); // specific filtering might act as "tokenizer"
+
             const records: ParsedRecord[] = [];
             const recordTypes = ['a', 'aaaa', 'cname', 'mx', 'txt', 'ns', 'srv', 'ptr', 'spf', 'caa'];
             const defaultTTL = (parsed as any).$ttl || 3600;
@@ -60,22 +89,43 @@ export const ImportZoneModal: React.FC<ImportZoneModalProps> = ({ isOpen, onClos
                         }
 
                         let content = '';
-                        if (type === 'a') content = r.ip;
-                        else if (type === 'aaaa') content = r.ip;
-                        else if (type === 'cname') content = r.alias;
-                        else if (type === 'mx') content = `${r.preference} ${r.host}`;
-                        else if (type === 'txt') content = Array.isArray(r.txt) ? r.txt.join(' ') : r.txt;
-                        else if (type === 'ns') content = r.host;
-                        else if (type === 'srv') content = `${r.priority} ${r.weight} ${r.port} ${r.target}`;
-                        else if (type === 'ptr') content = r.host;
-                        else if (type === 'spf') content = r.data;
-                        else if (type === 'caa') content = `${r.flags} ${r.tag} "${r.value}"`;
+                        let rawContentToMatch = ''; // Used to find the line
+
+                        if (type === 'a') { content = r.ip; rawContentToMatch = r.ip; }
+                        else if (type === 'aaaa') { content = r.ip; rawContentToMatch = r.ip; }
+                        else if (type === 'cname') { content = r.alias; rawContentToMatch = r.alias; }
+                        else if (type === 'mx') { content = `${r.preference} ${r.host}`; rawContentToMatch = r.host; }
+                        else if (type === 'txt') {
+                            const val = Array.isArray(r.txt) ? r.txt.join(' ') : r.txt;
+                            content = val;
+                            rawContentToMatch = val;
+                        }
+                        else if (type === 'ns') { content = r.host; rawContentToMatch = r.host; }
+                        else if (type === 'srv') { content = `${r.priority} ${r.weight} ${r.port} ${r.target}`; rawContentToMatch = r.target; }
+                        else if (type === 'ptr') { content = r.host; rawContentToMatch = r.host; }
+                        else if (type === 'spf') { content = r.data; rawContentToMatch = r.data; }
+                        else if (type === 'caa') { content = `${r.flags} ${r.tag} "${r.value}"`; rawContentToMatch = r.value; }
+
+                        const finalContent = normalizeContent(content, type.toUpperCase());
+
+                        // Find comment (Fuzzy matching)
+                        let comment: string | undefined = undefined;
+                        // Search for the extracted content in the lines
+                        const matchedLineIdx = lineMetadata.findIndex(l => !l.used && l.cleanLine.includes(rawContentToMatch));
+
+                        if (matchedLineIdx !== -1) {
+                            lineMetadata[matchedLineIdx].used = true;
+                            if (lineMetadata[matchedLineIdx].comment) {
+                                comment = lineMetadata[matchedLineIdx].comment!;
+                            }
+                        }
 
                         records.push({
                             name: normalizedName,
                             type: type.toUpperCase(),
                             ttl: r.ttl || defaultTTL,
-                            content: normalizeContent(content, type.toUpperCase()),
+                            content: finalContent,
+                            comment
                         });
                     });
                 }
@@ -153,12 +203,15 @@ export const ImportZoneModal: React.FC<ImportZoneModalProps> = ({ isOpen, onClos
                                 {filteredPreview.length > 0 ? (
                                     filteredPreview.map((r, i) => (
                                         <div key={i} className="px-2 py-1.5 text-[10px] grid grid-cols-12 gap-1 group hover:bg-muted/20 transition-colors">
-                                            <div className="col-span-5 font-medium truncate" title={r.name}>
+                                            <div className="col-span-4 font-medium truncate" title={r.name}>
                                                 {r.name}
                                             </div>
-                                            <div className="col-span-2 text-primary font-bold uppercase">{r.type}</div>
-                                            <div className="col-span-5 text-muted-foreground truncate" title={r.content}>
+                                            <div className="col-span-1 text-primary font-bold uppercase">{r.type}</div>
+                                            <div className="col-span-4 text-muted-foreground truncate" title={r.content}>
                                                 {r.content}
+                                            </div>
+                                            <div className="col-span-3 text-muted-foreground/70 truncate italic" title={r.comment}>
+                                                {r.comment && `// ${r.comment}`}
                                             </div>
                                         </div>
                                     ))
@@ -171,8 +224,8 @@ export const ImportZoneModal: React.FC<ImportZoneModalProps> = ({ isOpen, onClos
                                             {!zoneText.trim()
                                                 ? 'Paste zone file content\nto see preview'
                                                 : ignoredCount > 0
-                                                  ? `All records are for domains\nother than ${domainName}`
-                                                  : 'No valid DNS records\nfound in input'}
+                                                    ? `All records are for domains\nother than ${domainName}`
+                                                    : 'No valid DNS records\nfound in input'}
                                         </p>
                                     </div>
                                 )}
