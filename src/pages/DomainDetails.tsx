@@ -188,7 +188,7 @@ export const DomainDetails: React.FC = () => {
             const keyA = getReverseKey(a.name);
             const keyB = getReverseKey(b.name);
 
-            const compareResult = keyA.localeCompare(keyB);
+            const compareResult = keyA.localeCompare(keyB, undefined, { numeric: true, sensitivity: 'base' });
             if (compareResult !== 0) return compareResult;
 
             // If names are effectively same in hierarchical order, sort by type
